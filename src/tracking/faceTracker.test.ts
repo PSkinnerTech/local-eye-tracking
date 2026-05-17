@@ -29,9 +29,11 @@ describe("createFaceTracker", () => {
     const tracker = await createFaceTracker();
     const video = document.createElement("video");
 
-    expect(WASM_URL).toBe("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm");
+    expect(WASM_URL).toBe("/wasm");
+    expect(WASM_URL).not.toMatch(/^https?:\/\//);
     expect(WASM_URL).not.toContain("@latest");
     expect(MODEL_URL).toBe("/models/face_landmarker.task");
+    expect(MODEL_URL).not.toMatch(/^https?:\/\//);
     expect(MODEL_URL).not.toContain("/latest/");
     expect(forVisionTasks).toHaveBeenCalledWith(WASM_URL);
     expect(createFromOptions).toHaveBeenCalledWith("vision", {
