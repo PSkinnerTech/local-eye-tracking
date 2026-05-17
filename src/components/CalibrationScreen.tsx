@@ -59,6 +59,7 @@ export function CalibrationScreen({
       const latest = latestFeaturesRef.current;
       if (
         latest?.faceDetected &&
+        latest.timestampMs >= pointStartedAtRef.current &&
         lastSampleTimestampRef.current !== latest.timestampMs
       ) {
         lastSampleTimestampRef.current = latest.timestampMs;
@@ -153,8 +154,8 @@ export function CalibrationScreen({
       <div
         className="calibration-dot"
         style={{
-          left: `${activePoint.xPercent}%`,
-          top: `${activePoint.yPercent}%`
+          left: `clamp(54px, ${activePoint.xPercent}%, calc(100% - 54px))`,
+          top: `clamp(150px, ${activePoint.yPercent}%, calc(100% - 154px))`
         }}
         aria-label={`Look at ${activePoint.label}`}
       />

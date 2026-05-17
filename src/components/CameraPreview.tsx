@@ -31,7 +31,7 @@ export function CameraPreview({
   return (
     <video
       ref={videoRef}
-      className={visible ? "camera-preview camera-preview--visible" : "camera-preview"}
+      className={visible ? "camera-preview camera-preview-visible" : "camera-preview"}
       aria-label="Local webcam preview"
       muted
       autoPlay

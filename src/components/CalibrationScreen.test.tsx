@@ -93,6 +93,73 @@ describe("CalibrationScreen", () => {
     expect(onComplete).toHaveBeenCalledOnce();
   });
 
+  it("does not count the previous point's latest frame after advancing", () => {
+    let rafCallback: FrameRequestCallback | undefined;
+    const requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+      rafCallback = callback;
+      return requestAnimationFrame.mock.calls.length;
+    });
+    vi.stubGlobal("requestAnimationFrame", requestAnimationFrame);
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+
+    const { rerender } = render(
+      <CalibrationScreen
+        latestFeatures={sample(0)}
+        onComplete={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    for (let index = 0; index < MIN_VALID_SAMPLES_PER_POINT; index += 1) {
+      const timestamp = index * 120;
+      act(() => {
+        rerender(
+          <CalibrationScreen
+            latestFeatures={sample(timestamp)}
+            onComplete={vi.fn()}
+            onCancel={vi.fn()}
+          />
+        );
+      });
+      act(() => {
+        rafCallback?.(timestamp);
+      });
+    }
+
+    act(() => {
+      rafCallback?.(2000);
+    });
+
+    expect(screen.getByText("Top right")).toBeInTheDocument();
+
+    act(() => {
+      rafCallback?.(2100);
+    });
+
+    for (let index = 0; index < MIN_VALID_SAMPLES_PER_POINT - 1; index += 1) {
+      const timestamp = 2200 + index * 120;
+      act(() => {
+        rerender(
+          <CalibrationScreen
+            latestFeatures={sample(timestamp)}
+            onComplete={vi.fn()}
+            onCancel={vi.fn()}
+          />
+        );
+      });
+      act(() => {
+        rafCallback?.(timestamp);
+      });
+    }
+
+    act(() => {
+      rafCallback?.(4100);
+    });
+
+    expect(screen.getByText("Top right")).toBeInTheDocument();
+    expect(screen.getByText(/Retrying dot/i)).toBeInTheDocument();
+  });
+
   it("cancels the scheduled animation frame on unmount", () => {
     const requestAnimationFrame = vi.fn(() => 42);
     const cancelAnimationFrame = vi.fn();
