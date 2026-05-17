@@ -81,8 +81,15 @@ export function buildCalibrationProfile(
   };
 }
 
+function isValidSample(sample: FrameFeatures): boolean {
+  return (
+    sample.faceDetected &&
+    FEATURE_KEYS.every((key) => Number.isFinite(sample[key]))
+  );
+}
+
 function validSamples(samples: FrameFeatures[] | undefined): FrameFeatures[] {
-  return samples?.filter((sample) => sample.faceDetected) ?? [];
+  return samples?.filter(isValidSample) ?? [];
 }
 
 function vectorFromSamples(samples: FrameFeatures[]): FeatureVector {
@@ -103,16 +110,24 @@ function toleranceFromSamples(
       const deviations = samples.map((sample) => Math.abs(sample[key] - center[key]));
       const tolerance = percentileValue(deviations, 0.95) * 1.8;
 
-      return [key, Math.max(tolerance, TOLERANCE_FLOORS[key] + Number.EPSILON)];
+      return [key, Math.max(tolerance, TOLERANCE_FLOORS[key])];
     })
   ) as FeatureVector;
 }
 
 function median(values: number[]): number {
   const sorted = [...values].sort((left, right) => left - right);
-  const middleIndex = Math.floor((sorted.length - 1) / 2);
+  const middleIndex = Math.floor(sorted.length / 2);
 
-  return sorted[middleIndex] ?? 0;
+  if (sorted.length === 0) {
+    return 0;
+  }
+
+  if (sorted.length % 2 === 1) {
+    return sorted[middleIndex];
+  }
+
+  return (sorted[middleIndex - 1] + sorted[middleIndex]) / 2;
 }
 
 function percentileValue(values: number[], percentile: number): number {

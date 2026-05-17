@@ -21,6 +21,17 @@ function sample(point: CalibrationPointId, offset: number): FrameFeatures {
   };
 }
 
+function samplesByPoint(
+  sampleFactory: (point: CalibrationPointId, index: number) => FrameFeatures
+) {
+  return Object.fromEntries(
+    CALIBRATION_POINTS.map((point) => [
+      point.id,
+      Array.from({ length: 14 }, (_, index) => sampleFactory(point.id, index))
+    ])
+  );
+}
+
 describe("calibration", () => {
   it("defines the five calibration points in screen order", () => {
     expect(CALIBRATION_POINTS.map((point) => point.id)).toEqual([
@@ -43,21 +54,16 @@ describe("calibration", () => {
   });
 
   it("builds a profile with medians and tolerances from every point", () => {
-    const samplesByPoint = Object.fromEntries(
-      CALIBRATION_POINTS.map((point) => [
-        point.id,
-        Array.from({ length: 14 }, (_, index) => sample(point.id, index))
-      ])
-    );
+    const calibrationSamples = samplesByPoint(sample);
 
-    const result = buildCalibrationProfile(samplesByPoint);
+    const result = buildCalibrationProfile(calibrationSamples);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.profile.points).toHaveLength(5);
-    expect(result.profile.center.pitch).toBeCloseTo(0.426, 3);
-    expect(result.profile.tolerance.pitch).toBeGreaterThan(0.04);
-    expect(result.profile.tolerance.faceScale).toBeGreaterThan(0.02);
+    expect(result.profile.center.pitch).toBeCloseTo(0.4265, 4);
+    expect(result.profile.tolerance.pitch).toBe(0.04);
+    expect(result.profile.tolerance.faceScale).toBe(0.06);
   });
 
   it("reports the point that needs retry when samples are insufficient", () => {
@@ -76,6 +82,30 @@ describe("calibration", () => {
       ok: false,
       reason: "insufficient-samples",
       pointId: "bottom-left"
+    });
+  });
+
+  it("rejects samples with non-finite feature values", () => {
+    const samples = Array.from({ length: 12 }, (_, index) => ({
+      ...sample("center", index),
+      pitch: index === 0 ? Number.NaN : 0.42
+    }));
+
+    expect(hasEnoughSamplesForPoint(samples, 12)).toBe(false);
+  });
+
+  it("reports insufficient samples instead of returning a NaN profile", () => {
+    const calibrationSamples = samplesByPoint((point, index) => ({
+      ...sample(point, index),
+      yaw: point === "top-left" ? Number.POSITIVE_INFINITY : 0.05
+    }));
+
+    const result = buildCalibrationProfile(calibrationSamples);
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "insufficient-samples",
+      pointId: "top-left"
     });
   });
 });
