@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { classifyAttention } from "./classifier";
 import type { CalibrationProfile, FrameFeatures } from "./types";
 
+const PITCH_WEIGHT = 1.35;
+const TOTAL_WEIGHT = 6.15;
+
 const profile: CalibrationProfile = {
   createdAtMs: 1000,
   minValidSamplesPerPoint: 12,
@@ -41,6 +44,13 @@ function frame(overrides: Partial<FrameFeatures> = {}): FrameFeatures {
   };
 }
 
+function pitchForDistance(distance: number): number {
+  const pitchDelta =
+    profile.tolerance.pitch * distance * Math.sqrt(TOTAL_WEIGHT / PITCH_WEIGHT);
+
+  return profile.center.pitch + pitchDelta;
+}
+
 describe("classifyAttention", () => {
   it("classifies calibrated-looking frames as looking", () => {
     expect(classifyAttention(frame(), profile).rawState).toBe("looking");
@@ -53,9 +63,41 @@ describe("classifyAttention", () => {
   });
 
   it("classifies borderline frames as unknown", () => {
-    expect(classifyAttention(frame({ pitch: 0.49, eyeVertical: 0.56 }), profile).rawState).toBe(
+    expect(classifyAttention(frame({ pitch: pitchForDistance(1.2) }), profile).rawState).toBe(
       "unknown"
     );
+  });
+
+  it("uses all feature weights at the looking threshold boundary", () => {
+    const result = classifyAttention(frame({ pitch: pitchForDistance(1) }), profile);
+
+    expect(result.rawState).toBe("looking");
+    expect(result.distance).toBeCloseTo(1, 10);
+  });
+
+  it("classifies just-over-threshold frames as unknown", () => {
+    const result = classifyAttention(frame({ pitch: pitchForDistance(1.01) }), profile);
+
+    expect(result.rawState).toBe("unknown");
+    expect(result.distance).toBeCloseTo(1.01, 10);
+  });
+
+  it("classifies frames above the away threshold as away", () => {
+    const result = classifyAttention(frame({ pitch: pitchForDistance(1.66) }), profile);
+
+    expect(result.rawState).toBe("away");
+    expect(result.distance).toBeCloseTo(1.66, 10);
+  });
+
+  it("keeps distance stable when unrelated features have tiny jitter", () => {
+    const steady = classifyAttention(frame({ pitch: pitchForDistance(1.2) }), profile);
+    const jittered = classifyAttention(
+      frame({ pitch: pitchForDistance(1.2), yaw: profile.center.yaw + 0.000001 }),
+      profile
+    );
+
+    expect(jittered.rawState).toBe(steady.rawState);
+    expect(jittered.distance).toBeCloseTo(steady.distance, 8);
   });
 
   it("classifies missing faces separately", () => {

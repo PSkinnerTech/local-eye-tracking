@@ -17,6 +17,7 @@ const FEATURE_WEIGHTS: Record<FeatureKey, number> = {
 };
 
 const MIN_TOLERANCE = 0.0001;
+const THRESHOLD_EPSILON = 0.000000000001;
 
 export function classifyAttention(
   features: FrameFeatures | null,
@@ -45,10 +46,8 @@ export function classifyAttention(
     };
   }
 
-  const movedKeys = FEATURE_KEYS.filter((key) => features[key] !== profile.center[key]);
-  const distanceKeys = movedKeys.length > 0 ? movedKeys : FEATURE_KEYS;
-  const weightTotal = distanceKeys.reduce((sum, key) => sum + FEATURE_WEIGHTS[key], 0);
-  const weightedDistance = distanceKeys.reduce((sum, key) => {
+  const weightTotal = FEATURE_KEYS.reduce((sum, key) => sum + FEATURE_WEIGHTS[key], 0);
+  const weightedDistance = FEATURE_KEYS.reduce((sum, key) => {
     const tolerance = Math.max(profile.tolerance[key], MIN_TOLERANCE);
     const normalized = Math.abs(features[key] - profile.center[key]) / tolerance;
 
@@ -56,7 +55,7 @@ export function classifyAttention(
   }, 0);
   const distance = Math.sqrt(weightedDistance / weightTotal);
 
-  if (distance <= 1) {
+  if (distance <= 1 + THRESHOLD_EPSILON) {
     return {
       rawState: "looking",
       confidence: clamp01(1 - distance / 1.4),
@@ -64,7 +63,7 @@ export function classifyAttention(
     };
   }
 
-  if (distance <= 1.65) {
+  if (distance <= 1.65 + THRESHOLD_EPSILON) {
     return {
       rawState: "unknown",
       confidence: clamp01(1 - Math.abs(distance - 1.325) / 0.65),
