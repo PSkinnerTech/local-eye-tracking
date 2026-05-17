@@ -29,6 +29,28 @@ const profile: CalibrationProfile = {
   }
 };
 
+const exactBoundaryProfile: CalibrationProfile = {
+  ...profile,
+  center: {
+    pitch: 0,
+    yaw: 0,
+    eyeVertical: 0,
+    eyeHorizontal: 0,
+    faceCenterX: 0,
+    faceCenterY: 0,
+    faceScale: 0
+  },
+  tolerance: {
+    pitch: 1,
+    yaw: 1,
+    eyeVertical: 1,
+    eyeHorizontal: 1,
+    faceCenterX: 1,
+    faceCenterY: 1,
+    faceScale: 1
+  }
+};
+
 function frame(overrides: Partial<FrameFeatures> = {}): FrameFeatures {
   return {
     timestampMs: 2000,
@@ -51,15 +73,29 @@ function pitchForDistance(distance: number): number {
   return profile.center.pitch + pitchDelta;
 }
 
-function frameAtUniformDistance(distance: number): FrameFeatures {
+function frameAtUniformDistance(
+  distance: number,
+  calibrationProfile = profile
+): FrameFeatures {
   return frame({
-    pitch: profile.center.pitch + profile.tolerance.pitch * distance,
-    yaw: profile.center.yaw + profile.tolerance.yaw * distance,
-    eyeVertical: profile.center.eyeVertical + profile.tolerance.eyeVertical * distance,
-    eyeHorizontal: profile.center.eyeHorizontal + profile.tolerance.eyeHorizontal * distance,
-    faceCenterX: profile.center.faceCenterX + profile.tolerance.faceCenterX * distance,
-    faceCenterY: profile.center.faceCenterY + profile.tolerance.faceCenterY * distance,
-    faceScale: profile.center.faceScale + profile.tolerance.faceScale * distance
+    pitch:
+      calibrationProfile.center.pitch + calibrationProfile.tolerance.pitch * distance,
+    yaw: calibrationProfile.center.yaw + calibrationProfile.tolerance.yaw * distance,
+    eyeVertical:
+      calibrationProfile.center.eyeVertical +
+      calibrationProfile.tolerance.eyeVertical * distance,
+    eyeHorizontal:
+      calibrationProfile.center.eyeHorizontal +
+      calibrationProfile.tolerance.eyeHorizontal * distance,
+    faceCenterX:
+      calibrationProfile.center.faceCenterX +
+      calibrationProfile.tolerance.faceCenterX * distance,
+    faceCenterY:
+      calibrationProfile.center.faceCenterY +
+      calibrationProfile.tolerance.faceCenterY * distance,
+    faceScale:
+      calibrationProfile.center.faceScale +
+      calibrationProfile.tolerance.faceScale * distance
   });
 }
 
@@ -101,10 +137,10 @@ describe("classifyAttention", () => {
     expect(result.distance).toBeCloseTo(1.66, 10);
   });
 
-  it("classifies the away threshold boundary as unknown", () => {
+  it("classifies the exact away threshold boundary as unknown", () => {
     const result = classifyAttention(
-      frame({ pitch: pitchForDistance(1.65 - 0.000000000001) }),
-      profile
+      frameAtUniformDistance(1.65, exactBoundaryProfile),
+      exactBoundaryProfile
     );
 
     expect(result.rawState).toBe("unknown");
