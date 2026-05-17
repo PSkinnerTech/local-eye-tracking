@@ -4,6 +4,7 @@ import {
   CALIBRATION_POINTS,
   hasEnoughSamplesForPoint
 } from "./calibration";
+import type { CalibrationBuildResult } from "./calibration";
 import type { CalibrationPointId, FrameFeatures } from "./types";
 
 function sample(point: CalibrationPointId, offset: number): FrameFeatures {
@@ -56,7 +57,8 @@ describe("calibration", () => {
   it("builds a profile with medians and tolerances from every point", () => {
     const calibrationSamples = samplesByPoint(sample);
 
-    const result = buildCalibrationProfile(calibrationSamples);
+    const result: CalibrationBuildResult =
+      buildCalibrationProfile(calibrationSamples);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -64,6 +66,20 @@ describe("calibration", () => {
     expect(result.profile.center.pitch).toBeCloseTo(0.4265, 4);
     expect(result.profile.tolerance.pitch).toBe(0.04);
     expect(result.profile.tolerance.faceScale).toBe(0.06);
+  });
+
+  it("uses percentile tolerance when it exceeds the feature floor", () => {
+    const calibrationSamples = samplesByPoint((point, index) => ({
+      ...sample(point, index),
+      pitch: index * 0.1
+    }));
+
+    const result = buildCalibrationProfile(calibrationSamples);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.tolerance.pitch).toBeGreaterThan(0.04);
+    expect(result.profile.tolerance.pitch).toBeCloseTo(1.17, 2);
   });
 
   it("reports the point that needs retry when samples are insufficient", () => {

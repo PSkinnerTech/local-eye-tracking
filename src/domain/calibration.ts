@@ -19,7 +19,7 @@ export const CALIBRATION_POINTS: CalibrationPoint[] = [
 
 export type SamplesByPoint = Partial<Record<CalibrationPointId, FrameFeatures[]>>;
 
-export type BuildCalibrationProfileResult =
+export type CalibrationBuildResult =
   | { ok: true; profile: CalibrationProfile }
   | {
       ok: false;
@@ -47,7 +47,7 @@ export function hasEnoughSamplesForPoint(
 export function buildCalibrationProfile(
   samplesByPoint: SamplesByPoint,
   createdAtMs = Date.now()
-): BuildCalibrationProfileResult {
+): CalibrationBuildResult {
   for (const point of CALIBRATION_POINTS) {
     if (
       !hasEnoughSamplesForPoint(
