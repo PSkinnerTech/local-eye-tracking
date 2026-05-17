@@ -51,6 +51,18 @@ function pitchForDistance(distance: number): number {
   return profile.center.pitch + pitchDelta;
 }
 
+function frameAtUniformDistance(distance: number): FrameFeatures {
+  return frame({
+    pitch: profile.center.pitch + profile.tolerance.pitch * distance,
+    yaw: profile.center.yaw + profile.tolerance.yaw * distance,
+    eyeVertical: profile.center.eyeVertical + profile.tolerance.eyeVertical * distance,
+    eyeHorizontal: profile.center.eyeHorizontal + profile.tolerance.eyeHorizontal * distance,
+    faceCenterX: profile.center.faceCenterX + profile.tolerance.faceCenterX * distance,
+    faceCenterY: profile.center.faceCenterY + profile.tolerance.faceCenterY * distance,
+    faceScale: profile.center.faceScale + profile.tolerance.faceScale * distance
+  });
+}
+
 describe("classifyAttention", () => {
   it("classifies calibrated-looking frames as looking", () => {
     expect(classifyAttention(frame(), profile).rawState).toBe("looking");
@@ -69,7 +81,7 @@ describe("classifyAttention", () => {
   });
 
   it("uses all feature weights at the looking threshold boundary", () => {
-    const result = classifyAttention(frame({ pitch: pitchForDistance(1) }), profile);
+    const result = classifyAttention(frameAtUniformDistance(1), profile);
 
     expect(result.rawState).toBe("looking");
     expect(result.distance).toBeCloseTo(1, 10);
@@ -87,6 +99,23 @@ describe("classifyAttention", () => {
 
     expect(result.rawState).toBe("away");
     expect(result.distance).toBeCloseTo(1.66, 10);
+  });
+
+  it("classifies the away threshold boundary as unknown", () => {
+    const result = classifyAttention(
+      frame({ pitch: pitchForDistance(1.65 - 0.000000000001) }),
+      profile
+    );
+
+    expect(result.rawState).toBe("unknown");
+    expect(result.distance).toBeCloseTo(1.65, 10);
+  });
+
+  it("classifies just-over-away-threshold frames as away", () => {
+    const result = classifyAttention(frameAtUniformDistance(1.6500000000005), profile);
+
+    expect(result.rawState).toBe("away");
+    expect(result.distance).toBeGreaterThan(1.65);
   });
 
   it("keeps distance stable when unrelated features have tiny jitter", () => {

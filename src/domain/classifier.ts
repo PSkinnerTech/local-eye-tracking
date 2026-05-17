@@ -17,7 +17,6 @@ const FEATURE_WEIGHTS: Record<FeatureKey, number> = {
 };
 
 const MIN_TOLERANCE = 0.0001;
-const THRESHOLD_EPSILON = 0.000000000001;
 
 export function classifyAttention(
   features: FrameFeatures | null,
@@ -55,7 +54,7 @@ export function classifyAttention(
   }, 0);
   const distance = Math.sqrt(weightedDistance / weightTotal);
 
-  if (distance <= 1 + THRESHOLD_EPSILON) {
+  if (distance <= 1) {
     return {
       rawState: "looking",
       confidence: clamp01(1 - distance / 1.4),
@@ -63,7 +62,7 @@ export function classifyAttention(
     };
   }
 
-  if (distance <= 1.65 + THRESHOLD_EPSILON) {
+  if (distance <= 1.65) {
     return {
       rawState: "unknown",
       confidence: clamp01(1 - Math.abs(distance - 1.325) / 0.65),
