@@ -6,6 +6,7 @@ import { useAttentionLoop } from "./useAttentionLoop";
 describe("useAttentionLoop", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("detects frames while active and passes results to the latest callback", () => {

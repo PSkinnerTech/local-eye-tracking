@@ -25,17 +25,17 @@ describe("createFaceTracker", () => {
   });
 
   it("loads MediaPipe FaceLandmarker and extracts features from the first detected face", async () => {
-    const { createFaceTracker } = await import("./faceTracker");
+    const { createFaceTracker, MODEL_URL, WASM_URL } = await import("./faceTracker");
     const tracker = await createFaceTracker();
     const video = document.createElement("video");
 
-    expect(forVisionTasks).toHaveBeenCalledWith(
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
-    );
+    expect(WASM_URL).toBe("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm");
+    expect(WASM_URL).not.toContain("@latest");
+    expect(MODEL_URL).toContain("/latest/face_landmarker.task");
+    expect(forVisionTasks).toHaveBeenCalledWith(WASM_URL);
     expect(createFromOptions).toHaveBeenCalledWith("vision", {
       baseOptions: {
-        modelAssetPath:
-          "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
+        modelAssetPath: MODEL_URL,
         delegate: "GPU"
       },
       runningMode: "VIDEO",

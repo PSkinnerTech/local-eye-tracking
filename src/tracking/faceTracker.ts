@@ -1,5 +1,6 @@
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import type { NormalizedLandmark as MediaPipeLandmark } from "@mediapipe/tasks-vision";
+import packageJson from "../../package.json";
 import { extractFrameFeatures } from "../domain/landmarks";
 import type { FrameFeatures } from "../domain/types";
 
@@ -10,8 +11,13 @@ export type FaceTracker = {
   dispose(): void;
 };
 
-const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
-const MODEL_URL =
+const TASKS_VISION_VERSION = packageJson.dependencies["@mediapipe/tasks-vision"];
+
+export const WASM_URL =
+  `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${TASKS_VISION_VERSION}/wasm`;
+
+// Startup fetches MediaPipe model assets only; video frames stay local in the browser.
+export const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task";
 
 export async function createFaceTracker(): Promise<FaceTracker> {
