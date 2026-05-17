@@ -53,4 +53,5 @@ export type AttentionResult = {
   rawState: RawAttentionState;
   confidence: number;
   distance: number;
+  trackingScore: number;
 };

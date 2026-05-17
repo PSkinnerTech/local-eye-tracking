@@ -22,8 +22,8 @@ export function TestScreen({
     (displayState === "green" || displayState === "red" ? "unknown" : displayState);
   const statusLabel = statusFor(rawState);
   const confidence =
-    attention && attention.rawState !== "face-missing" && Number.isFinite(attention.confidence)
-      ? `${Math.round(attention.confidence * 100)}% confidence`
+    attention && attention.rawState !== "face-missing" && Number.isFinite(attention.trackingScore)
+      ? `${Math.round(attention.trackingScore * 100)}% tracking`
       : "Waiting for face";
   const isRed =
     displayState === "red" || displayState === "away" || displayState === "face-missing";

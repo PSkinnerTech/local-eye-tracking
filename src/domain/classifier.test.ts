@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { classifyAttention } from "./classifier";
+import {
+  AWAY_DISTANCE_THRESHOLD,
+  classifyAttention,
+  rawStateForTrackingThreshold,
+  TRACKING_SCORE_THRESHOLD
+} from "./classifier";
 import type { CalibrationProfile, FrameFeatures } from "./types";
 
 const PITCH_WEIGHT = 1.35;
@@ -101,7 +106,10 @@ function frameAtUniformDistance(
 
 describe("classifyAttention", () => {
   it("classifies calibrated-looking frames as looking", () => {
-    expect(classifyAttention(frame(), profile).rawState).toBe("looking");
+    const result = classifyAttention(frame(), profile);
+
+    expect(result.rawState).toBe("looking");
+    expect(result.trackingScore).toBe(1);
   });
 
   it("classifies strong downward posture as away", () => {
@@ -154,6 +162,23 @@ describe("classifyAttention", () => {
     expect(result.distance).toBeGreaterThan(1.65);
   });
 
+  it("turns low tracking scores into an away state for smoothing", () => {
+    const thresholdDistance = (1 - TRACKING_SCORE_THRESHOLD) * AWAY_DISTANCE_THRESHOLD;
+    const atThreshold = classifyAttention(
+      frameAtUniformDistance(thresholdDistance, exactBoundaryProfile),
+      exactBoundaryProfile
+    );
+    const belowThreshold = classifyAttention(
+      frameAtUniformDistance(thresholdDistance + 0.01, exactBoundaryProfile),
+      exactBoundaryProfile
+    );
+
+    expect(atThreshold.trackingScore).toBeCloseTo(TRACKING_SCORE_THRESHOLD, 10);
+    expect(rawStateForTrackingThreshold(atThreshold)).toBe("looking");
+    expect(belowThreshold.trackingScore).toBeLessThan(TRACKING_SCORE_THRESHOLD);
+    expect(rawStateForTrackingThreshold(belowThreshold)).toBe("away");
+  });
+
   it("keeps distance stable when unrelated features have tiny jitter", () => {
     const steady = classifyAttention(frame({ pitch: pitchForDistance(1.2) }), profile);
     const jittered = classifyAttention(
@@ -169,7 +194,8 @@ describe("classifyAttention", () => {
     expect(classifyAttention(frame({ faceDetected: false }), profile)).toEqual({
       rawState: "face-missing",
       confidence: 1,
-      distance: Number.POSITIVE_INFINITY
+      distance: Number.POSITIVE_INFINITY,
+      trackingScore: 0
     });
   });
 
@@ -177,7 +203,8 @@ describe("classifyAttention", () => {
     expect(classifyAttention(frame({ pitch: Number.NaN }), profile)).toEqual({
       rawState: "unknown",
       confidence: 0,
-      distance: Number.POSITIVE_INFINITY
+      distance: Number.POSITIVE_INFINITY,
+      trackingScore: 0
     });
   });
 });

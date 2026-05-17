@@ -6,6 +6,10 @@ import {
   type FrameFeatures
 } from "./types";
 
+export const LOOKING_DISTANCE_THRESHOLD = 1;
+export const AWAY_DISTANCE_THRESHOLD = 1.65;
+export const TRACKING_SCORE_THRESHOLD = 0.35;
+
 const FEATURE_WEIGHTS: Record<FeatureKey, number> = {
   pitch: 1.35,
   yaw: 1.1,
@@ -26,7 +30,8 @@ export function classifyAttention(
     return {
       rawState: "face-missing",
       confidence: 1,
-      distance: Number.POSITIVE_INFINITY
+      distance: Number.POSITIVE_INFINITY,
+      trackingScore: 0
     };
   }
 
@@ -41,7 +46,8 @@ export function classifyAttention(
     return {
       rawState: "unknown",
       confidence: 0,
-      distance: Number.POSITIVE_INFINITY
+      distance: Number.POSITIVE_INFINITY,
+      trackingScore: 0
     };
   }
 
@@ -54,27 +60,51 @@ export function classifyAttention(
   }, 0);
   const distance = Math.sqrt(weightedDistance / weightTotal);
 
-  if (distance <= 1) {
+  const trackingScore = trackingScoreForDistance(distance);
+
+  if (distance <= LOOKING_DISTANCE_THRESHOLD) {
     return {
       rawState: "looking",
       confidence: clamp01(1 - distance / 1.4),
-      distance
+      distance,
+      trackingScore
     };
   }
 
-  if (distance <= 1.65) {
+  if (distance <= AWAY_DISTANCE_THRESHOLD) {
     return {
       rawState: "unknown",
       confidence: clamp01(1 - Math.abs(distance - 1.325) / 0.65),
-      distance
+      distance,
+      trackingScore
     };
   }
 
   return {
     rawState: "away",
     confidence: clamp01((distance - 1.2) / 1.4),
-    distance
+    distance,
+    trackingScore
   };
+}
+
+export function rawStateForTrackingThreshold(
+  attention: AttentionResult,
+  threshold = TRACKING_SCORE_THRESHOLD
+) {
+  if (attention.rawState === "face-missing") {
+    return "face-missing";
+  }
+
+  return attention.trackingScore < threshold ? "away" : "looking";
+}
+
+export function trackingScoreForDistance(distance: number) {
+  if (!Number.isFinite(distance)) {
+    return 0;
+  }
+
+  return clamp01(1 - distance / AWAY_DISTANCE_THRESHOLD);
 }
 
 function clamp01(value: number): number {
