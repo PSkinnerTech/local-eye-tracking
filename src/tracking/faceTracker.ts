@@ -16,9 +16,8 @@ const TASKS_VISION_VERSION = packageJson.dependencies["@mediapipe/tasks-vision"]
 export const WASM_URL =
   `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${TASKS_VISION_VERSION}/wasm`;
 
-// Startup fetches MediaPipe model assets only; video frames stay local in the browser.
-export const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task";
+// The app serves this model asset locally; video frames are still processed in-browser.
+export const MODEL_URL = "/models/face_landmarker.task";
 
 export async function createFaceTracker(): Promise<FaceTracker> {
   const vision = await FilesetResolver.forVisionTasks(WASM_URL);
