@@ -17,6 +17,18 @@ export const CALIBRATION_POINTS: CalibrationPoint[] = [
   { id: "center", label: "Center", xPercent: 50, yPercent: 50 }
 ];
 
+export const KEYBOARD_CALIBRATION_POINT: CalibrationPoint = {
+  id: "keyboard",
+  label: "Keyboard",
+  xPercent: 50,
+  yPercent: 88
+};
+
+export const CALIBRATION_SEQUENCE: CalibrationPoint[] = [
+  ...CALIBRATION_POINTS,
+  KEYBOARD_CALIBRATION_POINT
+];
+
 export type SamplesByPoint = Partial<Record<CalibrationPointId, FrameFeatures[]>>;
 
 export type CalibrationBuildResult =
@@ -48,7 +60,11 @@ export function buildCalibrationProfile(
   samplesByPoint: SamplesByPoint,
   createdAtMs = Date.now()
 ): CalibrationBuildResult {
-  for (const point of CALIBRATION_POINTS) {
+  const pointsToValidate = samplesByPoint.keyboard
+    ? CALIBRATION_SEQUENCE
+    : CALIBRATION_POINTS;
+
+  for (const point of pointsToValidate) {
     if (
       !hasEnoughSamplesForPoint(
         samplesByPoint[point.id],
@@ -66,17 +82,26 @@ export function buildCalibrationProfile(
   const samples = CALIBRATION_POINTS.flatMap((point) =>
     validSamples(samplesByPoint[point.id])
   );
+  const keyboardSamples = validSamples(samplesByPoint.keyboard);
   const center = vectorFromSamples(samples);
   const tolerance = toleranceFromSamples(samples, center);
+  const keyboardCenter =
+    keyboardSamples.length > 0 ? vectorFromSamples(keyboardSamples) : undefined;
+  const keyboardTolerance =
+    keyboardSamples.length > 0
+      ? toleranceFromSamples(keyboardSamples, keyboardCenter!)
+      : undefined;
 
   return {
     ok: true,
     profile: {
       createdAtMs,
       minValidSamplesPerPoint: MIN_VALID_SAMPLES_PER_POINT,
-      points: CALIBRATION_POINTS.map((point) => point.id),
+      points: pointsToValidate.map((point) => point.id),
       center,
-      tolerance
+      tolerance,
+      keyboardCenter,
+      keyboardTolerance
     }
   };
 }

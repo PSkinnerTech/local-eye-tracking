@@ -3,7 +3,8 @@ export type CalibrationPointId =
   | "top-right"
   | "bottom-right"
   | "bottom-left"
-  | "center";
+  | "center"
+  | "keyboard";
 
 export type FeatureKey =
   | "pitch"
@@ -45,6 +46,8 @@ export type CalibrationProfile = {
   points: CalibrationPointId[];
   center: FeatureVector;
   tolerance: FeatureVector;
+  keyboardCenter?: FeatureVector;
+  keyboardTolerance?: FeatureVector;
 };
 
 export type RawAttentionState = "looking" | "away" | "unknown" | "face-missing";

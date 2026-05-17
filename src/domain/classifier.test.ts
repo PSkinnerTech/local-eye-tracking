@@ -56,6 +56,18 @@ const exactBoundaryProfile: CalibrationProfile = {
   }
 };
 
+const keyboardProfile = {
+  ...profile,
+  keyboardCenter: {
+    ...profile.center,
+    eyeVertical: 0.64
+  },
+  keyboardTolerance: {
+    ...profile.tolerance,
+    eyeVertical: 0.035
+  }
+} as CalibrationProfile;
+
 function frame(overrides: Partial<FrameFeatures> = {}): FrameFeatures {
   return {
     timestampMs: 2000,
@@ -177,6 +189,24 @@ describe("classifyAttention", () => {
     expect(rawStateForTrackingThreshold(atThreshold)).toBe("looking");
     expect(belowThreshold.trackingScore).toBeLessThan(TRACKING_SCORE_THRESHOLD);
     expect(rawStateForTrackingThreshold(belowThreshold)).toBe("away");
+  });
+
+  it("classifies eye-only keyboard glances as away when they match the keyboard profile", () => {
+    const result = classifyAttention(
+      frame({
+        pitch: profile.center.pitch,
+        yaw: profile.center.yaw,
+        eyeVertical: 0.635,
+        eyeHorizontal: profile.center.eyeHorizontal,
+        faceCenterX: profile.center.faceCenterX,
+        faceCenterY: profile.center.faceCenterY,
+        faceScale: profile.center.faceScale
+      }),
+      keyboardProfile
+    );
+
+    expect(result.rawState).toBe("away");
+    expect(result.trackingScore).toBeLessThan(TRACKING_SCORE_THRESHOLD);
   });
 
   it("keeps distance stable when unrelated features have tiny jitter", () => {

@@ -68,6 +68,26 @@ describe("calibration", () => {
     expect(result.profile.tolerance.faceScale).toBe(0.06);
   });
 
+  it("builds a keyboard-looking profile from the down calibration sample", () => {
+    const calibrationSamples = {
+      ...samplesByPoint(sample),
+      keyboard: Array.from({ length: 14 }, (_, index) => ({
+        ...sample("center", index),
+        point: "keyboard" as CalibrationPointId,
+        eyeVertical: 0.7 + index * 0.001,
+        pitch: 0.43
+      }))
+    };
+
+    const result = buildCalibrationProfile(calibrationSamples);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.points).toContain("keyboard");
+    expect((result.profile as any).keyboardCenter.eyeVertical).toBeCloseTo(0.7065, 4);
+    expect((result.profile as any).keyboardTolerance.eyeVertical).toBeGreaterThan(0);
+  });
+
   it("uses percentile tolerance when it exceeds the feature floor", () => {
     const calibrationSamples = samplesByPoint((point, index) => ({
       ...sample(point, index),

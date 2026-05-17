@@ -69,7 +69,7 @@ describe("CalibrationScreen", () => {
       />
     );
 
-    for (let point = 0; point < 5; point += 1) {
+    for (let point = 0; point < 6; point += 1) {
       for (let index = 0; index < MIN_VALID_SAMPLES_PER_POINT + 1; index += 1) {
         const timestamp = point * 3000 + index * 120;
         act(() => {
@@ -91,6 +91,48 @@ describe("CalibrationScreen", () => {
     }
 
     expect(onComplete).toHaveBeenCalledOnce();
+  });
+
+  it("adds a keyboard-looking calibration step after the screen dots", () => {
+    let rafCallback: FrameRequestCallback | undefined;
+    const requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+      rafCallback = callback;
+      return requestAnimationFrame.mock.calls.length;
+    });
+    vi.stubGlobal("requestAnimationFrame", requestAnimationFrame);
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+
+    const { rerender } = render(
+      <CalibrationScreen
+        latestFeatures={sample(0)}
+        onComplete={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    for (let point = 0; point < 5; point += 1) {
+      for (let index = 0; index < MIN_VALID_SAMPLES_PER_POINT + 1; index += 1) {
+        const timestamp = point * 3000 + index * 120;
+        act(() => {
+          rerender(
+            <CalibrationScreen
+              latestFeatures={sample(timestamp)}
+              onComplete={vi.fn()}
+              onCancel={vi.fn()}
+            />
+          );
+        });
+        act(() => {
+          rafCallback?.(timestamp);
+        });
+      }
+      act(() => {
+        rafCallback?.(point * 3000 + 2000);
+      });
+    }
+
+    expect(screen.getByText("Keyboard")).toBeInTheDocument();
+    expect(screen.getByText(/Look at your keyboard/i)).toBeInTheDocument();
   });
 
   it("does not count the previous point's latest frame after advancing", () => {

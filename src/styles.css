@@ -229,6 +229,19 @@ p {
   box-shadow: 0 0 0 16px rgb(246 200 95 / 24%);
 }
 
+.keyboard-calibration-target {
+  position: absolute;
+  left: 50%;
+  bottom: 136px;
+  z-index: 1;
+  width: min(420px, calc(100% - 56px));
+  height: 14px;
+  border-radius: 999px;
+  background: #17211b;
+  transform: translateX(-50%);
+  box-shadow: 0 18px 0 rgb(23 33 27 / 22%);
+}
+
 .calibration-status {
   position: absolute;
   left: 50%;

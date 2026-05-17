@@ -9,6 +9,7 @@ import {
 export const LOOKING_DISTANCE_THRESHOLD = 1;
 export const AWAY_DISTANCE_THRESHOLD = 1.65;
 export const TRACKING_SCORE_THRESHOLD = 0.35;
+const KEYBOARD_PROFILE_MARGIN = 0.15;
 
 const FEATURE_WEIGHTS: Record<FeatureKey, number> = {
   pitch: 1.35,
@@ -51,16 +52,25 @@ export function classifyAttention(
     };
   }
 
-  const weightTotal = FEATURE_KEYS.reduce((sum, key) => sum + FEATURE_WEIGHTS[key], 0);
-  const weightedDistance = FEATURE_KEYS.reduce((sum, key) => {
-    const tolerance = Math.max(profile.tolerance[key], MIN_TOLERANCE);
-    const normalized = Math.abs(features[key] - profile.center[key]) / tolerance;
-
-    return sum + normalized ** 2 * FEATURE_WEIGHTS[key];
-  }, 0);
-  const distance = Math.sqrt(weightedDistance / weightTotal);
+  const distance = weightedDistance(features, profile.center, profile.tolerance);
 
   const trackingScore = trackingScoreForDistance(distance);
+  const keyboardDistance =
+    profile.keyboardCenter && profile.keyboardTolerance
+      ? weightedDistance(features, profile.keyboardCenter, profile.keyboardTolerance)
+      : null;
+
+  if (
+    keyboardDistance !== null &&
+    keyboardDistance + KEYBOARD_PROFILE_MARGIN < distance
+  ) {
+    return {
+      rawState: "away",
+      confidence: clamp01((distance - keyboardDistance) / 1.4),
+      distance,
+      trackingScore: 0
+    };
+  }
 
   if (distance <= LOOKING_DISTANCE_THRESHOLD) {
     return {
@@ -105,6 +115,22 @@ export function trackingScoreForDistance(distance: number) {
   }
 
   return clamp01(1 - distance / AWAY_DISTANCE_THRESHOLD);
+}
+
+function weightedDistance(
+  features: FrameFeatures,
+  center: CalibrationProfile["center"],
+  toleranceByKey: CalibrationProfile["tolerance"]
+) {
+  const weightTotal = FEATURE_KEYS.reduce((sum, key) => sum + FEATURE_WEIGHTS[key], 0);
+  const weightedTotal = FEATURE_KEYS.reduce((sum, key) => {
+    const tolerance = Math.max(toleranceByKey[key], MIN_TOLERANCE);
+    const normalized = Math.abs(features[key] - center[key]) / tolerance;
+
+    return sum + normalized ** 2 * FEATURE_WEIGHTS[key];
+  }, 0);
+
+  return Math.sqrt(weightedTotal / weightTotal);
 }
 
 function clamp01(value: number): number {

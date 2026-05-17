@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   buildCalibrationProfile,
-  CALIBRATION_POINTS,
+  CALIBRATION_SEQUENCE,
   hasEnoughSamplesForPoint,
   type SamplesByPoint
 } from "../domain/calibration";
@@ -53,7 +53,7 @@ export function CalibrationScreen({
         return;
       }
 
-      const activePoint = CALIBRATION_POINTS[activeIndexRef.current];
+      const activePoint = CALIBRATION_SEQUENCE[activeIndexRef.current];
       pointStartedAtRef.current ??= timestampMs;
 
       const latest = latestFeaturesRef.current;
@@ -94,8 +94,9 @@ export function CalibrationScreen({
     };
   }, []);
 
-  const activePoint = CALIBRATION_POINTS[activeIndex];
+  const activePoint = CALIBRATION_SEQUENCE[activeIndex];
   const countdownSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
+  const isKeyboardStep = activePoint.id === "keyboard";
 
   function advance(pointId: CalibrationPointId) {
     const samples = samplesByPointRef.current[pointId];
@@ -113,7 +114,7 @@ export function CalibrationScreen({
     }
 
     const nextIndex = activeIndexRef.current + 1;
-    if (nextIndex < CALIBRATION_POINTS.length) {
+    if (nextIndex < CALIBRATION_SEQUENCE.length) {
       setRetryPointId(null);
       activeIndexRef.current = nextIndex;
       setActiveIndex(nextIndex);
@@ -127,7 +128,7 @@ export function CalibrationScreen({
       return;
     }
 
-    const retryIndex = CALIBRATION_POINTS.findIndex(
+    const retryIndex = CALIBRATION_SEQUENCE.findIndex(
       (point) => point.id === result.pointId
     );
     setRetryPointId(result.pointId);
@@ -151,18 +152,30 @@ export function CalibrationScreen({
         </button>
       </div>
 
-      <div
-        className="calibration-dot"
-        style={{
-          left: `clamp(54px, ${activePoint.xPercent}%, calc(100% - 54px))`,
-          top: `clamp(150px, ${activePoint.yPercent}%, calc(100% - 154px))`
-        }}
-        aria-label={`Look at ${activePoint.label}`}
-      />
+      {isKeyboardStep ? (
+        <div className="keyboard-calibration-target" aria-hidden="true" />
+      ) : (
+        <div
+          className="calibration-dot"
+          style={{
+            left: `clamp(54px, ${activePoint.xPercent}%, calc(100% - 54px))`,
+            top: `clamp(150px, ${activePoint.yPercent}%, calc(100% - 154px))`
+          }}
+          aria-label={`Look at ${activePoint.label}`}
+        />
+      )}
 
       <div className="calibration-status" aria-live="polite">
         <span className="countdown">{countdownSeconds}</span>
-        <span>{retryPointId === activePoint.id ? "Retrying dot" : "Keep looking at the dot"}</span>
+        <span>
+          {retryPointId === activePoint.id
+            ? isKeyboardStep
+              ? "Retrying keyboard sample"
+              : "Retrying dot"
+            : isKeyboardStep
+              ? "Look at your keyboard"
+              : "Keep looking at the dot"}
+        </span>
       </div>
     </main>
   );
