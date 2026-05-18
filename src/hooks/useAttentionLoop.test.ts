@@ -67,4 +67,48 @@ describe("useAttentionLoop", () => {
 
     expect(cancelAnimationFrame).toHaveBeenCalledWith(7);
   });
+
+  it("reports tracker runtime errors and stops the frame loop", () => {
+    let rafCallback: FrameRequestCallback | undefined;
+    const requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+      rafCallback = callback;
+      return requestAnimationFrame.mock.calls.length;
+    });
+    const cancelAnimationFrame = vi.fn();
+    vi.stubGlobal("requestAnimationFrame", requestAnimationFrame);
+    vi.stubGlobal("cancelAnimationFrame", cancelAnimationFrame);
+
+    const error = new Error("WebGL unavailable");
+    const tracker: FaceTracker = {
+      detect: vi.fn(() => {
+        throw error;
+      }),
+      dispose: vi.fn()
+    };
+    const video = document.createElement("video");
+    Object.defineProperty(video, "readyState", {
+      configurable: true,
+      value: HTMLMediaElement.HAVE_CURRENT_DATA
+    });
+    const onFrame = vi.fn();
+    const onError = vi.fn();
+
+    renderHook(() =>
+      useAttentionLoop({
+        active: true,
+        tracker,
+        video,
+        onFrame,
+        onError
+      })
+    );
+
+    act(() => {
+      rafCallback?.(30);
+    });
+
+    expect(onError).toHaveBeenCalledWith(error);
+    expect(onFrame).not.toHaveBeenCalled();
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
+  });
 });

@@ -73,11 +73,20 @@ export function App() {
     [mode, profile]
   );
 
+  const handleTrackerRuntimeError = useCallback(() => {
+    setTrackerStatus("error");
+    setTrackerError(
+      "The tracker could not process webcam frames. MediaPipe needs WebGL support in this browser; try enabling hardware acceleration or using another browser."
+    );
+    setLatestFeatures(null);
+  }, []);
+
   useAttentionLoop({
     active: camera.status === "ready" && trackerStatus === "ready",
     tracker,
     video,
-    onFrame: handleFrame
+    onFrame: handleFrame,
+    onError: handleTrackerRuntimeError
   });
 
   const resetTestingState = useCallback(() => {

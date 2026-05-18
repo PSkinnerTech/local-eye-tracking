@@ -7,19 +7,26 @@ type UseAttentionLoopOptions = {
   tracker: FaceTracker | null;
   video: HTMLVideoElement | null;
   onFrame: (features: FrameFeatures | null, timestampMs: number) => void;
+  onError?: (error: unknown) => void;
 };
 
 export function useAttentionLoop({
   active,
   tracker,
   video,
-  onFrame
+  onFrame,
+  onError
 }: UseAttentionLoopOptions): void {
   const onFrameRef = useRef(onFrame);
+  const onErrorRef = useRef(onError);
 
   useEffect(() => {
     onFrameRef.current = onFrame;
   }, [onFrame]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   useEffect(() => {
     if (!active || !tracker || !video) {
@@ -30,7 +37,12 @@ export function useAttentionLoop({
 
     const tick = (timestampMs: number) => {
       if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-        onFrameRef.current(tracker.detect(video, timestampMs), timestampMs);
+        try {
+          onFrameRef.current(tracker.detect(video, timestampMs), timestampMs);
+        } catch (error) {
+          onErrorRef.current?.(error);
+          return;
+        }
       }
 
       frameId = requestAnimationFrame(tick);

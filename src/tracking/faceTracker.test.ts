@@ -36,14 +36,18 @@ describe("createFaceTracker", () => {
     expect(MODEL_URL).not.toMatch(/^https?:\/\//);
     expect(MODEL_URL).not.toContain("/latest/");
     expect(forVisionTasks).toHaveBeenCalledWith(WASM_URL);
-    expect(createFromOptions).toHaveBeenCalledWith("vision", {
-      baseOptions: {
-        modelAssetPath: MODEL_URL,
-        delegate: "GPU"
-      },
-      runningMode: "VIDEO",
-      numFaces: 1
-    });
+    expect(createFromOptions).toHaveBeenCalledWith(
+      "vision",
+      expect.objectContaining({
+        baseOptions: {
+          modelAssetPath: MODEL_URL,
+          delegate: "CPU"
+        },
+        canvas: expect.any(HTMLCanvasElement),
+        runningMode: "VIDEO",
+        numFaces: 1
+      })
+    );
     expect(tracker.detect(video, 123)).toEqual({ faceDetected: true });
     expect(detectForVideo).toHaveBeenCalledWith(video, 123);
     expect(extractFrameFeatures).toHaveBeenCalledWith([{ x: 0.5, y: 0.25 }], 123);

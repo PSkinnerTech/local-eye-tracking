@@ -16,11 +16,13 @@ export const MODEL_URL = "/models/face_landmarker.task";
 
 export async function createFaceTracker(): Promise<FaceTracker> {
   const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+  const canvas = document.createElement("canvas");
   const landmarker = await FaceLandmarker.createFromOptions(vision, {
     baseOptions: {
       modelAssetPath: MODEL_URL,
-      delegate: "GPU"
+      delegate: "CPU"
     },
+    canvas,
     runningMode: "VIDEO",
     numFaces: 1
   });

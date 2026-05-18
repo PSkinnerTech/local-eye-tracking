@@ -40,7 +40,7 @@ export function SetupScreen({
     cameraStatus === "unavailable" ||
     cameraStatus === "error";
   const canStartCalibration =
-    cameraStatus === "ready" && trackerStatus === "ready" && hasFace;
+    cameraStatus === "ready" && trackerStatus === "ready";
 
   return (
     <main className="app-shell setup-shell">
