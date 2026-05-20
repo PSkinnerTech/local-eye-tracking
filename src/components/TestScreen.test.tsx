@@ -38,4 +38,54 @@ describe("TestScreen", () => {
     expect(screen.getByText("Keyboard separation")).toBeInTheDocument();
     expect(screen.getByText("1.80")).toBeInTheDocument();
   });
+
+  it("renders evaluation controls when provided", () => {
+    render(
+      <TestScreen
+        displayState="green"
+        attention={attention}
+        smoother={{
+          displayState: "green",
+          rawState: "looking",
+          awayDurationMs: 0
+        }}
+        evaluation={{
+          samples: [],
+          summary: {
+            totalSamples: 0,
+            falseLookingRate: null,
+            falseAwayRate: null,
+            labels: {
+              "screen-center": emptyEvaluationLabel(),
+              "screen-bottom": emptyEvaluationLabel(),
+              keyboard: emptyEvaluationLabel(),
+              "off-left": emptyEvaluationLabel(),
+              "off-right": emptyEvaluationLabel(),
+              "lean-left": emptyEvaluationLabel(),
+              "lean-right": emptyEvaluationLabel(),
+              "low-light": emptyEvaluationLabel()
+            }
+          },
+          onCapture: vi.fn(),
+          onClear: vi.fn(),
+          onExport: vi.fn()
+        }}
+        onRecalibrate={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Evaluate" })).toBeInTheDocument();
+  });
 });
+
+function emptyEvaluationLabel() {
+  return {
+    sampleCount: 0,
+    lookingPercent: 0,
+    unknownPercent: 0,
+    awayPercent: 0,
+    faceMissingPercent: 0,
+    medianTrackingScore: null,
+    medianKeyboardScore: null
+  };
+}

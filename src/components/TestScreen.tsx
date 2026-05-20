@@ -1,12 +1,28 @@
 import type { AttentionResult, RawAttentionState } from "../domain/types";
 import type { DisplayAttentionState, SmootherSnapshot } from "../domain/smoothing";
+import type {
+  EvaluationLabel,
+  EvaluationSample,
+  EvaluationSummary
+} from "../domain/evaluation";
+import { EvaluationPanel } from "./EvaluationPanel";
 
 type TestDisplayState = DisplayAttentionState | RawAttentionState;
+
+type EvaluationControls = {
+  samples: EvaluationSample[];
+  summary: EvaluationSummary;
+  disabledReason?: string;
+  onCapture: (label: EvaluationLabel) => void;
+  onClear: () => void;
+  onExport: () => void;
+};
 
 type TestScreenProps = {
   displayState: TestDisplayState;
   attention: AttentionResult | null;
   smoother: SmootherSnapshot | null;
+  evaluation?: EvaluationControls;
   onRecalibrate: () => void;
 };
 
@@ -14,6 +30,7 @@ export function TestScreen({
   displayState,
   attention,
   smoother,
+  evaluation,
   onRecalibrate
 }: TestScreenProps) {
   const rawState =
@@ -34,6 +51,7 @@ export function TestScreen({
       <button className="test-recalibrate" type="button" onClick={onRecalibrate}>
         Recalibrate
       </button>
+      {evaluation ? <EvaluationPanel {...evaluation} /> : null}
       <section className="test-readout" aria-live="polite">
         <p className="test-status">{statusLabel}</p>
         <p className="test-confidence">{confidence}</p>
