@@ -27,6 +27,7 @@ function labelSummary(label: EvaluationLabel, sampleCount = 0): EvaluationSummar
     awayPercent: 0,
     faceMissingPercent: 0,
     medianTrackingScore: null,
+    medianSideGazeScore: null,
     medianKeyboardScore: null
   };
 }
@@ -44,6 +45,11 @@ function summary(counts: Partial<Record<EvaluationLabel, number>> = {}): Evaluat
   return {
     totalSamples,
     targetSamples: EVALUATION_LABELS.length * BASELINE_TARGET_COUNT,
+    balancedSampleCount: Object.values(labels).reduce(
+      (total, label) => total + Math.min(label.sampleCount, label.targetCount ?? 0),
+      0
+    ),
+    extraSamples: 0,
     completedLabels: Object.values(labels).filter((label) => label.isComplete).length,
     remainingSamples,
     isComplete: remainingSamples === 0,
@@ -134,6 +140,49 @@ describe("EvaluationPanel", () => {
 
     expect(screen.getByText("Screen center 1/20")).toBeInTheDocument();
     expect(screen.getByText("Keyboard 20/20 Done")).toBeInTheDocument();
+  });
+
+  it("disables completed label capture while leaving incomplete labels enabled", () => {
+    const onCapture = vi.fn();
+    render(
+      <EvaluationPanel
+        samples={[keyboardSample]}
+        summary={summary({ keyboard: BASELINE_TARGET_COUNT })}
+        onCapture={onCapture}
+        onClear={vi.fn()}
+        onExport={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Evaluate" }));
+
+    expect(screen.getByRole("button", { name: "Keyboard" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Screen center" })).toBeEnabled();
+  });
+
+  it("shows which labels still need samples", () => {
+    render(
+      <EvaluationPanel
+        samples={[keyboardSample]}
+        summary={summary({
+          "screen-center": BASELINE_TARGET_COUNT,
+          "screen-bottom": BASELINE_TARGET_COUNT,
+          keyboard: BASELINE_TARGET_COUNT,
+          "off-left": BASELINE_TARGET_COUNT,
+          "off-right": BASELINE_TARGET_COUNT,
+          "lean-left": BASELINE_TARGET_COUNT,
+          "lean-right": BASELINE_TARGET_COUNT,
+          "low-light": 0
+        })}
+        onCapture={vi.fn()}
+        onClear={vi.fn()}
+        onExport={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Evaluate" }));
+
+    expect(screen.getByText("Missing Low light 20")).toBeInTheDocument();
   });
 
   it("renders a warning and disables Keyboard when disabledReason is provided", () => {

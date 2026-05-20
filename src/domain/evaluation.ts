@@ -91,6 +91,8 @@ export type EvaluationSample = {
   awayDurationMs: number;
   trackingScore: number;
   screenDistance?: number;
+  sideGazeScore?: number;
+  sideGazeDirection?: "left" | "right";
   keyboardDistance?: number;
   keyboardScore?: number;
   keyboardSeparation?: number;
@@ -109,12 +111,15 @@ export type EvaluationSummaryByLabel = {
   awayPercent: number;
   faceMissingPercent: number;
   medianTrackingScore: number | null;
+  medianSideGazeScore: number | null;
   medianKeyboardScore: number | null;
 };
 
 export type EvaluationSummary = {
   totalSamples: number;
   targetSamples?: number;
+  balancedSampleCount?: number;
+  extraSamples?: number;
   completedLabels?: number;
   remainingSamples?: number;
   isComplete?: boolean;
@@ -136,12 +141,20 @@ type AddEvaluationSampleInput = {
   features: FrameFeatures | null;
   attention: AttentionResult;
   smootherSnapshot: SmootherSnapshot;
+  enforceTarget?: boolean;
 };
 
 export function addEvaluationSample(
   samples: EvaluationSample[],
   input: AddEvaluationSampleInput
 ): EvaluationSample[] {
+  const metadata = EVALUATION_LABEL_METADATA[input.label];
+  const currentLabelSamples = samples.filter((sample) => sample.label === input.label).length;
+
+  if (input.enforceTarget !== false && currentLabelSamples >= metadata.targetCount) {
+    return samples;
+  }
+
   return [
     ...samples,
     {
@@ -154,6 +167,8 @@ export function addEvaluationSample(
       awayDurationMs: input.smootherSnapshot.awayDurationMs,
       trackingScore: input.attention.trackingScore,
       screenDistance: input.attention.screenDistance ?? input.attention.distance,
+      sideGazeScore: input.attention.sideGazeScore,
+      sideGazeDirection: input.attention.sideGazeDirection,
       keyboardDistance: input.attention.keyboardDistance,
       keyboardScore: input.attention.keyboardScore,
       keyboardSeparation: input.attention.keyboardSeparation,
@@ -177,6 +192,11 @@ export function summarizeEvaluation(samples: EvaluationSample[]): EvaluationSumm
     (total, label) => total + EVALUATION_LABEL_METADATA[label].targetCount,
     0
   );
+  const balancedSampleCount = EVALUATION_LABELS.reduce((total, label) => {
+    const labelSummary = labels[label];
+
+    return total + Math.min(labelSummary.sampleCount, labelSummary.targetCount ?? 0);
+  }, 0);
   const completedLabels = EVALUATION_LABELS.filter((label) => labels[label].isComplete).length;
   const remainingSamples = EVALUATION_LABELS.reduce(
     (total, label) => total + (labels[label].remainingCount ?? 0),
@@ -186,6 +206,8 @@ export function summarizeEvaluation(samples: EvaluationSample[]): EvaluationSumm
   return {
     totalSamples: samples.length,
     targetSamples,
+    balancedSampleCount,
+    extraSamples: Math.max(0, samples.length - balancedSampleCount),
     completedLabels,
     remainingSamples,
     isComplete: remainingSamples === 0,
@@ -249,6 +271,11 @@ function summarizeLabel(
     awayPercent: statePercent(labelSamples, "away"),
     faceMissingPercent: statePercent(labelSamples, "face-missing"),
     medianTrackingScore: median(labelSamples.map((sample) => sample.trackingScore)),
+    medianSideGazeScore: median(
+      labelSamples
+        .map((sample) => sample.sideGazeScore)
+        .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+    ),
     medianKeyboardScore: median(
       labelSamples
         .map((sample) => sample.keyboardScore)

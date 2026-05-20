@@ -12,6 +12,8 @@ const KEYBOARD_SCORE_AWAY_THRESHOLD = 0.55;
 const KEYBOARD_SCORE_STRONG_AWAY_THRESHOLD = 0.75;
 const KEYBOARD_DISTANCE_GRACE = 0.25;
 const MIN_KEYBOARD_SEPARATION = 0.75;
+const SIDE_GAZE_AWAY_THRESHOLD = 1.35;
+const SIDE_GAZE_STRONG_AWAY_THRESHOLD = 1.8;
 const DISTANCE_EPSILON = 1e-14;
 
 const FEATURE_WEIGHTS: Record<FeatureKey, number> = {
@@ -63,6 +65,7 @@ export function classifyAttention(
 
   const distance = weightedDistance(features, profile.center, profile.tolerance);
   const keyboard = keyboardDiagnostics(features, profile);
+  const sideGaze = sideGazeDiagnostics(features, profile);
   const trackingScore = trackingScoreForDistance(distance);
 
   if (
@@ -78,6 +81,23 @@ export function classifyAttention(
       distance,
       trackingScore: 0,
       screenDistance: distance,
+      ...sideGaze,
+      ...keyboard
+    };
+  }
+
+  if (
+    sideGaze.sideGazeScore >= SIDE_GAZE_AWAY_THRESHOLD &&
+    (distance <= LOOKING_DISTANCE_THRESHOLD + DISTANCE_EPSILON ||
+      sideGaze.sideGazeScore >= SIDE_GAZE_STRONG_AWAY_THRESHOLD)
+  ) {
+    return {
+      rawState: "away",
+      confidence: clamp01((sideGaze.sideGazeScore - 0.85) / 1.1),
+      distance,
+      trackingScore: 0,
+      screenDistance: distance,
+      ...sideGaze,
       ...keyboard
     };
   }
@@ -89,6 +109,7 @@ export function classifyAttention(
       distance,
       trackingScore,
       screenDistance: distance,
+      ...sideGaze,
       ...keyboard
     };
   }
@@ -100,6 +121,7 @@ export function classifyAttention(
       distance,
       trackingScore,
       screenDistance: distance,
+      ...sideGaze,
       ...keyboard
     };
   }
@@ -110,6 +132,7 @@ export function classifyAttention(
     distance,
     trackingScore,
     screenDistance: distance,
+    ...sideGaze,
     ...keyboard
   };
 }
@@ -173,6 +196,36 @@ function keyboardDiagnostics(
     keyboardScore,
     keyboardSeparation,
     keyboardQuality
+  };
+}
+
+function sideGazeDiagnostics(
+  features: FrameFeatures,
+  profile: CalibrationProfile
+): { sideGazeScore: number; sideGazeDirection: "left" | "right" } {
+  const sideKeys = [
+    "yaw",
+    "eyeHorizontal",
+    "leftEyeHorizontal",
+    "rightEyeHorizontal"
+  ] as const;
+  let signedTotal = 0;
+  let weightedTotal = 0;
+  let weightTotal = 0;
+
+  for (const key of sideKeys) {
+    const tolerance = Math.max(profile.tolerance[key], MIN_TOLERANCE);
+    const normalized = (features[key] - profile.center[key]) / tolerance;
+    const weight = FEATURE_WEIGHTS[key];
+
+    signedTotal += normalized * weight;
+    weightedTotal += normalized ** 2 * weight;
+    weightTotal += weight;
+  }
+
+  return {
+    sideGazeScore: Math.sqrt(weightedTotal / weightTotal),
+    sideGazeDirection: signedTotal < 0 ? "left" : "right"
   };
 }
 

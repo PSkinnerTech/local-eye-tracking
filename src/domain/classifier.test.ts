@@ -277,6 +277,52 @@ describe("classifyAttention", () => {
     expect(result.keyboardScore).toBeLessThan(0.55);
   });
 
+  it("classifies strong side gaze as away even when pooled screen distance is still looking", () => {
+    const sideMultiplier = 1.6;
+    const result = classifyAttention(
+      frame({
+        yaw: profile.center.yaw + profile.tolerance.yaw * sideMultiplier,
+        eyeHorizontal:
+          profile.center.eyeHorizontal + profile.tolerance.eyeHorizontal * sideMultiplier,
+        leftEyeHorizontal:
+          profile.center.leftEyeHorizontal +
+          profile.tolerance.leftEyeHorizontal * sideMultiplier,
+        rightEyeHorizontal:
+          profile.center.rightEyeHorizontal +
+          profile.tolerance.rightEyeHorizontal * sideMultiplier
+      }),
+      profile
+    );
+
+    expect(result.distance).toBeLessThan(1);
+    expect(result.rawState).toBe("away");
+    expect(result.trackingScore).toBe(0);
+    expect(result.sideGazeScore).toBeGreaterThan(1.35);
+    expect(result.sideGazeDirection).toBe("right");
+  });
+
+  it("keeps screen-edge side gaze looking below the side-away threshold", () => {
+    const sideMultiplier = 1.2;
+    const result = classifyAttention(
+      frame({
+        yaw: profile.center.yaw - profile.tolerance.yaw * sideMultiplier,
+        eyeHorizontal:
+          profile.center.eyeHorizontal - profile.tolerance.eyeHorizontal * sideMultiplier,
+        leftEyeHorizontal:
+          profile.center.leftEyeHorizontal -
+          profile.tolerance.leftEyeHorizontal * sideMultiplier,
+        rightEyeHorizontal:
+          profile.center.rightEyeHorizontal -
+          profile.tolerance.rightEyeHorizontal * sideMultiplier
+      }),
+      profile
+    );
+
+    expect(result.rawState).toBe("looking");
+    expect(result.sideGazeScore).toBeLessThan(1.35);
+    expect(result.sideGazeDirection).toBe("left");
+  });
+
   it("does not trust keyboard projection when calibration separation is weak", () => {
     const result = classifyAttention(
       frame({

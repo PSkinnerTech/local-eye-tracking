@@ -95,6 +95,7 @@ function diagnosticsFor(attention: AttentionResult | null) {
 
   const rows = [
     metricRow("Screen distance", attention.screenDistance ?? attention.distance),
+    sideGazeRow(attention),
     metricRow("Keyboard distance", attention.keyboardDistance),
     metricRow("Keyboard score", attention.keyboardScore),
     metricRow("Keyboard separation", attention.keyboardSeparation)
@@ -118,5 +119,19 @@ function metricRow(label: string, value: number | undefined) {
   return {
     label,
     value: value.toFixed(2)
+  };
+}
+
+function sideGazeRow(attention: AttentionResult) {
+  if (
+    typeof attention.sideGazeScore !== "number" ||
+    !Number.isFinite(attention.sideGazeScore)
+  ) {
+    return null;
+  }
+
+  return {
+    label: "Side gaze",
+    value: `${attention.sideGazeScore.toFixed(2)} ${attention.sideGazeDirection ?? "side"}`
   };
 }

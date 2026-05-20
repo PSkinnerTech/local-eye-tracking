@@ -7,7 +7,7 @@ import {
   validateEvaluationPayload
 } from "./lib/evaluation-analysis.mjs";
 
-function sample(label, rawState, trackingScore, keyboardScore) {
+function sample(label, rawState, trackingScore, keyboardScore, sideGazeScore) {
   return {
     id: `${label}-${rawState}-${trackingScore}`,
     timestampMs: 1_000,
@@ -16,7 +16,8 @@ function sample(label, rawState, trackingScore, keyboardScore) {
     displayState: rawState === "looking" ? "green" : "red",
     awayDurationMs: rawState === "looking" ? 0 : 900,
     trackingScore,
-    ...(keyboardScore === undefined ? {} : { keyboardScore })
+    ...(keyboardScore === undefined ? {} : { keyboardScore }),
+    ...(sideGazeScore === undefined ? {} : { sideGazeScore })
   };
 }
 
@@ -24,8 +25,8 @@ describe("evaluation export analysis", () => {
   it("computes false-looking and false-away rates from label role metadata", () => {
     const samples = [
       sample("keyboard", "looking", 0.91, 0.82),
-      sample("off-left", "away", 0.25, 0.67),
-      sample("off-right", "looking", 0.88, 0.74),
+      sample("off-left", "away", 0.25, 0.67, 1.8),
+      sample("off-right", "looking", 0.88, 0.74, 1.5),
       sample("screen-center", "away", 0.31, 0.2),
       sample("screen-bottom", "looking", 0.94, 0.12),
       sample("lean-left", "unknown", 0.62),
@@ -61,8 +62,30 @@ describe("evaluation export analysis", () => {
       medianTrackingScore: 0.91,
       medianKeyboardScore: 0.82
     });
+    expect(analysis.labels["off-left"].medianSideGazeScore).toBe(1.8);
     expect(analysis.labels["lean-left"].unknownPercent).toBe(1);
     expect(analysis.labels["lean-right"].faceMissingPercent).toBe(1);
+  });
+
+  it("separates balanced baseline progress from extra samples", () => {
+    const samples = [
+      ...Array.from({ length: 21 }, (_, index) =>
+        sample("keyboard", index % 2 === 0 ? "away" : "looking", 0.25, 0.8)
+      ),
+      ...Array.from({ length: 20 }, () => sample("screen-center", "looking", 0.9, 0.1))
+    ];
+    const analysis = analyzeEvaluationPayloads([
+      {
+        version: 1,
+        samples
+      }
+    ]);
+
+    expect(analysis.totalSamples).toBe(41);
+    expect(analysis.balancedSampleCount).toBe(40);
+    expect(analysis.extraSamples).toBe(1);
+    expect(analysis.remainingSamples).toBe(120);
+    expect(analysis.labels.keyboard.extraCount).toBe(1);
   });
 
   it("rejects invalid payloads", () => {
@@ -95,17 +118,20 @@ describe("evaluation export analysis", () => {
     const output = formatEvaluationAnalysis(analysis);
 
     expect(output).toContain("Files: 2");
-    expect(output).toContain("Total samples: 3/160 target (157 remaining)");
+    expect(output).toContain("Total samples: 3");
+    expect(output).toContain("Balanced target: 3/160 (157 remaining)");
     expect(output).toContain("False-looking rate: 100.0%");
     expect(output).toContain("False-away rate: 50.0%");
     expect(output).toContain("Label");
     expect(output).toContain("Target");
     expect(output).toContain("Remaining");
+    expect(output).toContain("Extra");
     expect(output).toContain("Keyboard");
     expect(output).toContain("Screen center");
     expect(output).not.toMatch(/^keyboard\s+/m);
     expect(output).not.toMatch(/^screen-center\s+/m);
     expect(output).toContain("Median tracking");
+    expect(output).toContain("Median side");
     expect(output).toContain("Median keyboard");
   });
 });

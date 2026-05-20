@@ -78,11 +78,17 @@ export function analyzeEvaluationPayloads(payloads, fileCount = payloads.length)
     (total, label) => total + label.remainingCount,
     0
   );
+  const balancedSampleCount = Object.values(labels).reduce(
+    (total, label) => total + Math.min(label.count, label.targetCount),
+    0
+  );
 
   return {
     fileCount,
     totalSamples: samples.length,
     targetSamples,
+    balancedSampleCount,
+    extraSamples: Math.max(0, samples.length - balancedSampleCount),
     completedLabels: Object.values(labels).filter((label) => label.isComplete).length,
     remainingSamples,
     isComplete: remainingSamples === 0,
@@ -100,7 +106,8 @@ export function formatEvaluationAnalysis(analysis) {
   const lines = [
     "Evaluation export analysis",
     `Files: ${analysis.fileCount}`,
-    `Total samples: ${formatTargetProgress(analysis)}`,
+    `Total samples: ${analysis.totalSamples}`,
+    `Balanced target: ${formatBalancedTargetProgress(analysis)}`,
     `False-looking rate: ${formatPercent(analysis.falseLookingRate)} (${analysis.falseLookingCount}/${analysis.falseLookingDenominator} away-role samples)`,
     `False-away rate: ${formatPercent(analysis.falseAwayRate)} (${analysis.falseAwayCount}/${analysis.falseAwayDenominator} screen-role samples)`,
     "",
@@ -112,11 +119,13 @@ export function formatEvaluationAnalysis(analysis) {
         "Count",
         "Target",
         "Remaining",
+        "Extra",
         "Looking",
         "Unknown",
         "Away",
         "Face missing",
         "Median tracking",
+        "Median side",
         "Median keyboard"
       ],
       ...EVALUATION_LABELS.map((label) => {
@@ -128,11 +137,13 @@ export function formatEvaluationAnalysis(analysis) {
           row.count.toString(),
           row.targetCount.toString(),
           row.remainingCount.toString(),
+          row.extraCount.toString(),
           formatPercent(row.lookingPercent),
           formatPercent(row.unknownPercent),
           formatPercent(row.awayPercent),
           formatPercent(row.faceMissingPercent),
           formatScore(row.medianTrackingScore),
+          formatScore(row.medianSideGazeScore),
           formatScore(row.medianKeyboardScore)
         ];
       })
@@ -146,12 +157,14 @@ function analyzeLabel(samples, label) {
   const metadata = EVALUATION_LABEL_METADATA[label];
   const labelSamples = samples.filter((sample) => sample.label === label);
   const remainingCount = Math.max(0, metadata.targetCount - labelSamples.length);
+  const extraCount = Math.max(0, labelSamples.length - metadata.targetCount);
 
   return {
     displayName: metadata.displayName,
     role: metadata.role,
     targetCount: metadata.targetCount,
     remainingCount,
+    extraCount,
     isComplete: remainingCount === 0,
     count: labelSamples.length,
     lookingPercent: statePercent(labelSamples, "looking"),
@@ -159,6 +172,7 @@ function analyzeLabel(samples, label) {
     awayPercent: statePercent(labelSamples, "away"),
     faceMissingPercent: statePercent(labelSamples, "face-missing"),
     medianTrackingScore: median(labelSamples.map((sample) => sample.trackingScore)),
+    medianSideGazeScore: median(labelSamples.map((sample) => sample.sideGazeScore)),
     medianKeyboardScore: median(labelSamples.map((sample) => sample.keyboardScore))
   };
 }
@@ -216,16 +230,18 @@ function formatScore(value) {
   return value.toFixed(3);
 }
 
-function formatTargetProgress(analysis) {
+function formatBalancedTargetProgress(analysis) {
   if (typeof analysis.targetSamples !== "number") {
-    return analysis.totalSamples.toString();
+    return analysis.balancedSampleCount.toString();
   }
 
   if (typeof analysis.remainingSamples !== "number") {
-    return `${analysis.totalSamples}/${analysis.targetSamples} target`;
+    return `${analysis.balancedSampleCount}/${analysis.targetSamples}`;
   }
 
-  return `${analysis.totalSamples}/${analysis.targetSamples} target (${analysis.remainingSamples} remaining)`;
+  const extraSuffix = analysis.extraSamples > 0 ? `, ${analysis.extraSamples} extra` : "";
+
+  return `${analysis.balancedSampleCount}/${analysis.targetSamples} (${analysis.remainingSamples} remaining${extraSuffix})`;
 }
 
 function table(rows) {
