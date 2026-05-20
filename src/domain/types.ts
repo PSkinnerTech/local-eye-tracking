@@ -85,6 +85,8 @@ export type AttentionResult = {
   distance: number;
   trackingScore: number;
   screenDistance?: number;
+  sideGazeScore?: number;
+  sideGazeDirection?: "left" | "right";
   keyboardDistance?: number;
   keyboardScore?: number;
   keyboardSeparation?: number;

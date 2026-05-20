@@ -9,6 +9,8 @@ const attention: AttentionResult = {
   distance: 0.42,
   trackingScore: 0.74,
   screenDistance: 0.42,
+  sideGazeScore: 1.45,
+  sideGazeDirection: "right",
   keyboardDistance: 1.4,
   keyboardScore: 0.22,
   keyboardSeparation: 1.8,
@@ -33,6 +35,8 @@ describe("TestScreen", () => {
     expect(screen.getByText("Calibration strong")).toBeInTheDocument();
     expect(screen.getByText("Screen distance")).toBeInTheDocument();
     expect(screen.getByText("0.42")).toBeInTheDocument();
+    expect(screen.getByText("Side gaze")).toBeInTheDocument();
+    expect(screen.getByText("1.45 right")).toBeInTheDocument();
     expect(screen.getByText("Keyboard score")).toBeInTheDocument();
     expect(screen.getByText("0.22")).toBeInTheDocument();
     expect(screen.getByText("Keyboard separation")).toBeInTheDocument();
@@ -86,6 +90,7 @@ function emptyEvaluationLabel() {
     awayPercent: 0,
     faceMissingPercent: 0,
     medianTrackingScore: null,
+    medianSideGazeScore: null,
     medianKeyboardScore: null
   };
 }

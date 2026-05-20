@@ -61,7 +61,8 @@ function samplesForLabel(
         displayState: rawState === "looking" ? "green" : "red",
         rawState,
         awayDurationMs: rawState === "looking" ? 0 : 900
-      }
+      },
+      enforceTarget: false
     });
   }
 
@@ -109,6 +110,25 @@ describe("evaluation", () => {
     expect(samples[0].rawState).toBe("looking");
     expect(samples[0].displayState).toBe("green");
     expect(samples[0].trackingScore).toBe(0.95);
+  });
+
+  it("does not add samples after a label reaches its baseline target", () => {
+    const samples = samplesForLabel("keyboard", BASELINE_TARGET_COUNT, "away");
+
+    const nextSamples = addEvaluationSample(samples, {
+      label: "keyboard",
+      timestampMs: 2_000,
+      features,
+      attention: attention("away", 0.2),
+      smootherSnapshot: {
+        displayState: "red",
+        rawState: "away",
+        awayDurationMs: 900
+      }
+    });
+
+    expect(nextSamples).toBe(samples);
+    expect(nextSamples).toHaveLength(BASELINE_TARGET_COUNT);
   });
 
   it("summarizes false-looking and false-away rates by label role", () => {
@@ -162,6 +182,8 @@ describe("evaluation", () => {
     const summary = summarizeEvaluation(samples);
 
     expect(summary.targetSamples).toBe(EVALUATION_LABELS.length * BASELINE_TARGET_COUNT);
+    expect(summary.balancedSampleCount).toBe(41);
+    expect(summary.extraSamples).toBe(1);
     expect(summary.completedLabels).toBe(2);
     expect(summary.remainingSamples).toBe(119);
     expect(summary.isComplete).toBe(false);

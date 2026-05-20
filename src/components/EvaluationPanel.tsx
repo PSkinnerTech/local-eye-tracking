@@ -28,6 +28,10 @@ export function EvaluationPanel({
   const hasSamples = samples.length > 0;
   const captureDisabled = Boolean(disabledReason);
   const targetSamples = summary.targetSamples ?? totalTargetSamples();
+  const progressSamples = summary.balancedSampleCount ?? Math.min(summary.totalSamples, targetSamples);
+  const missingLabels = EVALUATION_LABELS.filter(
+    (label) => (summary.labels[label].remainingCount ?? 0) > 0
+  );
 
   return (
     <aside className="evaluation-panel" aria-label="Evaluation capture">
@@ -44,27 +48,51 @@ export function EvaluationPanel({
         <div className="evaluation-body">
           <div className="evaluation-summary" aria-label="Evaluation summary">
             <span>
-              Progress {summary.totalSamples}/{targetSamples}
+              Progress {progressSamples}/{targetSamples}
             </span>
             <span>False-looking {formatPercent(summary.falseLookingRate)}</span>
             <span>False-away {formatPercent(summary.falseAwayRate)}</span>
+            {summary.extraSamples ? <span>Extra {summary.extraSamples}</span> : null}
           </div>
 
           {disabledReason ? <p className="evaluation-warning">{disabledReason}</p> : null}
 
           <div className="evaluation-label-grid" aria-label="Capture label">
-            {EVALUATION_LABELS.map((label) => (
-              <button
-                key={label}
-                type="button"
-                disabled={captureDisabled}
-                title={EVALUATION_LABEL_METADATA[label].instruction}
-                onClick={() => onCapture(label)}
-              >
-                {labelDisplayName(summary, label)}
-              </button>
-            ))}
+            {EVALUATION_LABELS.map((label) => {
+              const isComplete = isLabelComplete(summary, label);
+
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  disabled={captureDisabled || isComplete}
+                  title={
+                    isComplete
+                      ? `${labelDisplayName(summary, label)} complete`
+                      : EVALUATION_LABEL_METADATA[label].instruction
+                  }
+                  onClick={() => onCapture(label)}
+                >
+                  {labelDisplayName(summary, label)}
+                </button>
+              );
+            })}
           </div>
+
+          {missingLabels.length > 0 ? (
+            <p className="evaluation-missing">
+              Missing{" "}
+              {missingLabels
+                .map((label) => {
+                  const labelSummary = summary.labels[label];
+
+                  return `${labelDisplayName(summary, label)} ${labelSummary.remainingCount ?? 0}`;
+                })
+                .join(", ")}
+            </p>
+          ) : (
+            <p className="evaluation-missing">Baseline complete</p>
+          )}
 
           <div className="evaluation-counts" aria-label="Evaluation counts">
             {EVALUATION_LABELS.map((label) => {
@@ -99,6 +127,13 @@ export function EvaluationPanel({
 
 function labelDisplayName(summary: EvaluationSummary, label: EvaluationLabel): string {
   return summary.labels[label].displayName ?? EVALUATION_LABEL_METADATA[label].displayName;
+}
+
+function isLabelComplete(summary: EvaluationSummary, label: EvaluationLabel): boolean {
+  const labelSummary = summary.labels[label];
+  const targetCount = labelSummary.targetCount ?? EVALUATION_LABEL_METADATA[label].targetCount;
+
+  return labelSummary.isComplete ?? labelSummary.sampleCount >= targetCount;
 }
 
 function totalTargetSamples(): number {
