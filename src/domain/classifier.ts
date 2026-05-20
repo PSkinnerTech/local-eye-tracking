@@ -8,7 +8,6 @@ import {
 
 export const LOOKING_DISTANCE_THRESHOLD = 1;
 export const AWAY_DISTANCE_THRESHOLD = 1.65;
-export const TRACKING_SCORE_THRESHOLD = 0.75;
 const KEYBOARD_SCORE_AWAY_THRESHOLD = 0.55;
 const KEYBOARD_SCORE_STRONG_AWAY_THRESHOLD = 0.75;
 const KEYBOARD_DISTANCE_GRACE = 0.25;
@@ -113,17 +112,6 @@ export function classifyAttention(
     screenDistance: distance,
     ...keyboard
   };
-}
-
-export function rawStateForTrackingThreshold(
-  attention: AttentionResult,
-  threshold = TRACKING_SCORE_THRESHOLD
-) {
-  if (attention.rawState === "face-missing") {
-    return "face-missing";
-  }
-
-  return attention.trackingScore < threshold ? "away" : "looking";
 }
 
 export function trackingScoreForDistance(distance: number) {
