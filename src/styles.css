@@ -380,7 +380,7 @@ p {
 .evaluation-toggle,
 .evaluation-label-grid button,
 .evaluation-actions button {
-  min-height: 36px;
+  min-height: 44px;
   border: 2px solid #17211b;
   border-radius: 8px;
   color: #17211b;
@@ -397,10 +397,12 @@ p {
 .evaluation-body {
   display: grid;
   gap: 12px;
+  max-height: min(520px, calc(100vh - 120px));
   margin-top: 10px;
   padding: 14px;
   border: 2px solid #17211b;
   border-radius: 8px;
+  overflow-y: auto;
   background: rgb(255 253 244 / 90%);
   box-shadow: 0 14px 30px rgb(0 0 0 / 14%);
 }
@@ -512,6 +514,10 @@ p {
     bottom: 16px;
     left: 16px;
     width: auto;
+  }
+
+  .evaluation-body {
+    max-height: min(440px, calc(100vh - 132px));
   }
 }
 
