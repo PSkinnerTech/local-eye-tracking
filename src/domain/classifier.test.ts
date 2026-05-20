@@ -278,7 +278,7 @@ describe("classifyAttention", () => {
   });
 
   it("classifies strong side gaze as away even when pooled screen distance is still looking", () => {
-    const sideMultiplier = 1.6;
+    const sideMultiplier = 0.7;
     const result = classifyAttention(
       frame({
         yaw: profile.center.yaw + profile.tolerance.yaw * sideMultiplier,
@@ -297,12 +297,12 @@ describe("classifyAttention", () => {
     expect(result.distance).toBeLessThan(1);
     expect(result.rawState).toBe("away");
     expect(result.trackingScore).toBe(0);
-    expect(result.sideGazeScore).toBeGreaterThan(1.35);
+    expect(result.sideGazeScore).toBeGreaterThanOrEqual(0.65);
     expect(result.sideGazeDirection).toBe("right");
   });
 
   it("keeps screen-edge side gaze looking below the side-away threshold", () => {
-    const sideMultiplier = 1.2;
+    const sideMultiplier = 0.55;
     const result = classifyAttention(
       frame({
         yaw: profile.center.yaw - profile.tolerance.yaw * sideMultiplier,
@@ -319,7 +319,7 @@ describe("classifyAttention", () => {
     );
 
     expect(result.rawState).toBe("looking");
-    expect(result.sideGazeScore).toBeLessThan(1.35);
+    expect(result.sideGazeScore).toBeLessThan(0.65);
     expect(result.sideGazeDirection).toBe("left");
   });
 

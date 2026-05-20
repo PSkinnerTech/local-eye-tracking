@@ -316,6 +316,12 @@ p {
   letter-spacing: 0;
 }
 
+.test-guidance {
+  font-size: 1.5rem;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
 .test-diagnostics {
   position: fixed;
   left: 24px;

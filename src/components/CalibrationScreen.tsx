@@ -24,6 +24,7 @@ export function CalibrationScreen({
   const [remainingMs, setRemainingMs] = useState(POINT_DURATION_MS);
   const [retryPointId, setRetryPointId] = useState<CalibrationPointId | null>(null);
   const [isWaitingForFace, setIsWaitingForFace] = useState(false);
+  const [calibrationFeedback, setCalibrationFeedback] = useState<string | null>(null);
   const activeIndexRef = useRef(0);
   const pointStartedAtRef = useRef<number | null>(null);
   const lastSampleTimestampRef = useRef<number | null>(null);
@@ -125,6 +126,7 @@ export function CalibrationScreen({
 
     if (!hasEnoughSamplesForPoint(samples)) {
       setRetryPointId(pointId);
+      setCalibrationFeedback(null);
       samplesByPointRef.current = {
         ...samplesByPointRef.current,
         [pointId]: []
@@ -136,6 +138,7 @@ export function CalibrationScreen({
     const nextIndex = activeIndexRef.current + 1;
     if (nextIndex < CALIBRATION_SEQUENCE.length) {
       setRetryPointId(null);
+      setCalibrationFeedback(null);
       activeIndexRef.current = nextIndex;
       setActiveIndex(nextIndex);
       return;
@@ -143,6 +146,22 @@ export function CalibrationScreen({
 
     const result = buildCalibrationProfile(samplesByPointRef.current);
     if (result.ok) {
+      if (result.profile.keyboardQuality === "weak") {
+        const retryIndex = CALIBRATION_SEQUENCE.findIndex((point) => point.id === "keyboard");
+        setRetryPointId("keyboard");
+        setCalibrationFeedback(
+          "Keyboard calibration weak. Look down at the keyboard while keeping your face visible."
+        );
+        samplesByPointRef.current = {
+          ...samplesByPointRef.current,
+          keyboard: []
+        };
+        activeIndexRef.current = retryIndex;
+        setActiveIndex(retryIndex);
+        setRemainingMs(POINT_DURATION_MS);
+        return;
+      }
+
       completedRef.current = true;
       onCompleteRef.current(result.profile);
       return;
@@ -152,6 +171,7 @@ export function CalibrationScreen({
       (point) => point.id === result.pointId
     );
     setRetryPointId(result.pointId);
+    setCalibrationFeedback(null);
     samplesByPointRef.current = {
       ...samplesByPointRef.current,
       [result.pointId]: []
@@ -190,6 +210,8 @@ export function CalibrationScreen({
         <span>
           {isWaitingForFace
             ? "Waiting for face"
+            : calibrationFeedback
+              ? calibrationFeedback
             : retryPointId === activePoint.id
             ? isKeyboardStep
               ? "Retrying keyboard sample"

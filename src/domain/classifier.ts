@@ -12,8 +12,9 @@ const KEYBOARD_SCORE_AWAY_THRESHOLD = 0.55;
 const KEYBOARD_SCORE_STRONG_AWAY_THRESHOLD = 0.75;
 const KEYBOARD_DISTANCE_GRACE = 0.25;
 const MIN_KEYBOARD_SEPARATION = 0.75;
-const SIDE_GAZE_AWAY_THRESHOLD = 1.35;
+const SIDE_GAZE_AWAY_THRESHOLD = 0.65;
 const SIDE_GAZE_STRONG_AWAY_THRESHOLD = 1.8;
+const SIDE_GAZE_DOMINANCE_RATIO = 1.1;
 const DISTANCE_EPSILON = 1e-14;
 
 const FEATURE_WEIGHTS: Record<FeatureKey, number> = {
@@ -88,6 +89,7 @@ export function classifyAttention(
 
   if (
     sideGaze.sideGazeScore >= SIDE_GAZE_AWAY_THRESHOLD &&
+    sideGaze.sideGazeScore >= distance * SIDE_GAZE_DOMINANCE_RATIO &&
     (distance <= LOOKING_DISTANCE_THRESHOLD + DISTANCE_EPSILON ||
       sideGaze.sideGazeScore >= SIDE_GAZE_STRONG_AWAY_THRESHOLD)
   ) {

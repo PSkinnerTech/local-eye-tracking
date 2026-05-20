@@ -4,7 +4,7 @@ import { MIN_VALID_SAMPLES_PER_POINT } from "../domain/calibration";
 import type { FrameFeatures } from "../domain/types";
 import { CalibrationScreen } from "./CalibrationScreen";
 
-function sample(timestampMs: number): FrameFeatures {
+function sample(timestampMs: number, overrides: Partial<FrameFeatures> = {}): FrameFeatures {
   return {
     timestampMs,
     faceDetected: true,
@@ -20,8 +20,18 @@ function sample(timestampMs: number): FrameFeatures {
     rightEyeOpenness: 0.06,
     faceCenterX: 0.5,
     faceCenterY: 0.45,
-    faceScale: 0.62
+    faceScale: 0.62,
+    ...overrides
   };
+}
+
+function keyboardSample(timestampMs: number): FrameFeatures {
+  return sample(timestampMs, {
+    pitch: 0.46,
+    eyeVertical: 0.72,
+    leftEyeVertical: 0.72,
+    rightEyeVertical: 0.72
+  });
 }
 
 describe("CalibrationScreen", () => {
@@ -117,6 +127,49 @@ describe("CalibrationScreen", () => {
     for (let point = 0; point < 6; point += 1) {
       for (let index = 0; index < MIN_VALID_SAMPLES_PER_POINT + 1; index += 1) {
         const timestamp = point * 3000 + index * 120;
+        const features = point === 5 ? keyboardSample(timestamp) : sample(timestamp);
+        act(() => {
+          rerender(
+            <CalibrationScreen
+              latestFeatures={features}
+              onComplete={onComplete}
+              onCancel={vi.fn()}
+            />
+          );
+        });
+        act(() => {
+          rafCallback?.(timestamp);
+        });
+      }
+      act(() => {
+        rafCallback?.(point * 3000 + 2000);
+      });
+    }
+
+    expect(onComplete).toHaveBeenCalledOnce();
+  });
+
+  it("retries keyboard calibration when keyboard separation is weak", () => {
+    let rafCallback: FrameRequestCallback | undefined;
+    const requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+      rafCallback = callback;
+      return requestAnimationFrame.mock.calls.length;
+    });
+    vi.stubGlobal("requestAnimationFrame", requestAnimationFrame);
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    const onComplete = vi.fn();
+
+    const { rerender } = render(
+      <CalibrationScreen
+        latestFeatures={sample(0)}
+        onComplete={onComplete}
+        onCancel={vi.fn()}
+      />
+    );
+
+    for (let point = 0; point < 6; point += 1) {
+      for (let index = 0; index < MIN_VALID_SAMPLES_PER_POINT + 1; index += 1) {
+        const timestamp = point * 3000 + index * 120;
         act(() => {
           rerender(
             <CalibrationScreen
@@ -134,6 +187,29 @@ describe("CalibrationScreen", () => {
         rafCallback?.(point * 3000 + 2000);
       });
     }
+
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(screen.getByText("Keyboard")).toBeInTheDocument();
+    expect(screen.getByText(/Keyboard calibration weak/i)).toBeInTheDocument();
+
+    for (let index = 0; index < MIN_VALID_SAMPLES_PER_POINT + 1; index += 1) {
+      const timestamp = 18_000 + index * 120;
+      act(() => {
+        rerender(
+          <CalibrationScreen
+            latestFeatures={keyboardSample(timestamp)}
+            onComplete={onComplete}
+            onCancel={vi.fn()}
+          />
+        );
+      });
+      act(() => {
+        rafCallback?.(timestamp);
+      });
+    }
+    act(() => {
+      rafCallback?.(20_000);
+    });
 
     expect(onComplete).toHaveBeenCalledOnce();
   });
