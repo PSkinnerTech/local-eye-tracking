@@ -4,7 +4,9 @@
 
 Local-only webcam attention tracking for typing practice.
 
-**Live demo:** [https://eyes-iota.vercel.app](https://eyes-iota.vercel.app)
+**Live demo:** [https://local-eye-tracking.vercel.app](https://local-eye-tracking.vercel.app)
+
+**Privacy promise:** webcam frames stay in your browser. This app does not upload video, images, recordings, calibration data, or evaluation exports.
 
 Local Eye Tracking is an experimental browser app that uses a laptop webcam to estimate whether a typing student appears to be looking at the screen or looking down/away. It uses local MediaPipe Face Landmarker features, a calibration-aware binary classifier, smoothing, diagnostics, and a local evaluation workflow.
 
@@ -33,6 +35,7 @@ Accuracy depends on webcam placement, lighting, face framing, posture, glasses, 
 
 The app is designed to run locally.
 
+- No accounts, backend, or server-side storage are required.
 - Webcam processing happens in the browser.
 - MediaPipe model and WASM assets are served from this repository's `public/` directory.
 - The app does not upload video frames, images, or webcam recordings.
