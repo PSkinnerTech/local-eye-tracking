@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { AttentionResult, FrameFeatures } from "./types";
 import {
+  BASELINE_TARGET_COUNT,
+  EVALUATION_LABEL_METADATA,
+  EVALUATION_LABELS,
   addEvaluationSample,
   createEvaluationExport,
+  evaluationExportFilename,
+  type EvaluationLabel,
+  type EvaluationSample,
   summarizeEvaluation
 } from "./evaluation";
 
@@ -38,7 +44,52 @@ function attention(rawState: AttentionResult["rawState"], trackingScore: number)
   };
 }
 
+function samplesForLabel(
+  label: EvaluationLabel,
+  sampleCount: number,
+  rawState: AttentionResult["rawState"] = "looking"
+): EvaluationSample[] {
+  let samples: EvaluationSample[] = [];
+
+  for (let index = 0; index < sampleCount; index += 1) {
+    samples = addEvaluationSample(samples, {
+      label,
+      timestampMs: 1_000 + index,
+      features,
+      attention: attention(rawState, 0.9),
+      smootherSnapshot: {
+        displayState: rawState === "looking" ? "green" : "red",
+        rawState,
+        awayDurationMs: rawState === "looking" ? 0 : 900
+      }
+    });
+  }
+
+  return samples;
+}
+
 describe("evaluation", () => {
+  it("exports baseline target metadata for every evaluation label", () => {
+    expect(BASELINE_TARGET_COUNT).toBe(20);
+    expect(Object.keys(EVALUATION_LABEL_METADATA)).toEqual([...EVALUATION_LABELS]);
+
+    expect(EVALUATION_LABEL_METADATA["screen-center"]).toMatchObject({
+      displayName: "Screen center",
+      role: "screen",
+      targetCount: BASELINE_TARGET_COUNT
+    });
+    expect(EVALUATION_LABEL_METADATA.keyboard).toMatchObject({
+      displayName: "Keyboard",
+      role: "away",
+      targetCount: BASELINE_TARGET_COUNT
+    });
+    expect(EVALUATION_LABEL_METADATA["low-light"].role).toBe("screen");
+
+    for (const label of EVALUATION_LABELS) {
+      expect(EVALUATION_LABEL_METADATA[label].instruction.length).toBeGreaterThan(8);
+    }
+  });
+
   it("adds labeled samples with feature and attention diagnostics", () => {
     const samples = addEvaluationSample([], {
       label: "screen-center",
@@ -101,6 +152,56 @@ describe("evaluation", () => {
     expect(summary.labels.keyboard.awayPercent).toBe(0.5);
   });
 
+  it("summarizes baseline target progress and remaining samples", () => {
+    const samples = [
+      ...samplesForLabel("screen-center", 1),
+      ...samplesForLabel("keyboard", BASELINE_TARGET_COUNT, "away"),
+      ...samplesForLabel("off-left", BASELINE_TARGET_COUNT + 1, "away")
+    ];
+
+    const summary = summarizeEvaluation(samples);
+
+    expect(summary.targetSamples).toBe(EVALUATION_LABELS.length * BASELINE_TARGET_COUNT);
+    expect(summary.completedLabels).toBe(2);
+    expect(summary.remainingSamples).toBe(119);
+    expect(summary.isComplete).toBe(false);
+    expect(summary.labels["screen-center"]).toMatchObject({
+      displayName: "Screen center",
+      role: "screen",
+      targetCount: BASELINE_TARGET_COUNT,
+      remainingCount: 19,
+      isComplete: false
+    });
+    expect(summary.labels.keyboard).toMatchObject({
+      displayName: "Keyboard",
+      role: "away",
+      targetCount: BASELINE_TARGET_COUNT,
+      remainingCount: 0,
+      isComplete: true
+    });
+    expect(summary.labels["off-left"].remainingCount).toBe(0);
+  });
+
+  it("marks the overall summary complete when every label reaches its target", () => {
+    const samples = EVALUATION_LABELS.flatMap((label) =>
+      samplesForLabel(
+        label,
+        BASELINE_TARGET_COUNT,
+        EVALUATION_LABEL_METADATA[label].role === "screen" ? "looking" : "away"
+      )
+    );
+
+    const summary = summarizeEvaluation(samples);
+
+    expect(summary.totalSamples).toBe(160);
+    expect(summary.completedLabels).toBe(EVALUATION_LABELS.length);
+    expect(summary.remainingSamples).toBe(0);
+    expect(summary.isComplete).toBe(true);
+    expect(Object.values(summary.labels).every((labelSummary) => labelSummary.isComplete)).toBe(
+      true
+    );
+  });
+
   it("creates an export payload with samples and summary metadata", () => {
     const samples = addEvaluationSample([], {
       label: "off-left",
@@ -120,5 +221,15 @@ describe("evaluation", () => {
     expect(payload.createdAtMs).toBe(300);
     expect(payload.samples[0].features).toBeNull();
     expect(payload.summary.totalSamples).toBe(1);
+  });
+
+  it("formats a human-readable export filename with local time and sample count", () => {
+    const createdAtMs = new Date(2026, 4, 20, 14, 32, 10).getTime();
+    const payload = createEvaluationExport(samplesForLabel("screen-center", 160), createdAtMs);
+
+    expect(evaluationExportFilename(payload)).toBe(
+      "eyes-baseline-eval-2026-05-20T14-32-10-160samples.json"
+    );
+    expect(evaluationExportFilename(payload)).not.toContain(":");
   });
 });
