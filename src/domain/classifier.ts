@@ -8,14 +8,24 @@ import {
 
 export const LOOKING_DISTANCE_THRESHOLD = 1;
 export const AWAY_DISTANCE_THRESHOLD = 1.65;
-export const TRACKING_SCORE_THRESHOLD = 0.35;
-const KEYBOARD_PROFILE_MARGIN = 0.15;
+export const TRACKING_SCORE_THRESHOLD = 0.75;
+const KEYBOARD_SCORE_AWAY_THRESHOLD = 0.55;
+const KEYBOARD_SCORE_STRONG_AWAY_THRESHOLD = 0.75;
+const KEYBOARD_DISTANCE_GRACE = 0.25;
+const MIN_KEYBOARD_SEPARATION = 0.75;
+const DISTANCE_EPSILON = 1e-14;
 
 const FEATURE_WEIGHTS: Record<FeatureKey, number> = {
   pitch: 1.35,
   yaw: 1.1,
   eyeVertical: 1.25,
   eyeHorizontal: 0.9,
+  leftEyeVertical: 1.25,
+  rightEyeVertical: 1.25,
+  leftEyeHorizontal: 0.9,
+  rightEyeHorizontal: 0.9,
+  leftEyeOpenness: 0.45,
+  rightEyeOpenness: 0.45,
   faceCenterX: 0.55,
   faceCenterY: 0.55,
   faceScale: 0.45
@@ -53,40 +63,45 @@ export function classifyAttention(
   }
 
   const distance = weightedDistance(features, profile.center, profile.tolerance);
-
+  const keyboard = keyboardDiagnostics(features, profile);
   const trackingScore = trackingScoreForDistance(distance);
-  const keyboardDistance =
-    profile.keyboardCenter && profile.keyboardTolerance
-      ? weightedDistance(features, profile.keyboardCenter, profile.keyboardTolerance)
-      : null;
 
   if (
-    keyboardDistance !== null &&
-    keyboardDistance + KEYBOARD_PROFILE_MARGIN < distance
+    keyboard &&
+    keyboard.keyboardSeparation >= MIN_KEYBOARD_SEPARATION &&
+    ((keyboard.keyboardScore >= KEYBOARD_SCORE_AWAY_THRESHOLD &&
+      keyboard.keyboardDistance < distance + KEYBOARD_DISTANCE_GRACE) ||
+      keyboard.keyboardScore >= KEYBOARD_SCORE_STRONG_AWAY_THRESHOLD)
   ) {
     return {
       rawState: "away",
-      confidence: clamp01((distance - keyboardDistance) / 1.4),
+      confidence: clamp01(keyboard.keyboardScore),
       distance,
-      trackingScore: 0
+      trackingScore: 0,
+      screenDistance: distance,
+      ...keyboard
     };
   }
 
-  if (distance <= LOOKING_DISTANCE_THRESHOLD) {
+  if (distance <= LOOKING_DISTANCE_THRESHOLD + DISTANCE_EPSILON) {
     return {
       rawState: "looking",
       confidence: clamp01(1 - distance / 1.4),
       distance,
-      trackingScore
+      trackingScore,
+      screenDistance: distance,
+      ...keyboard
     };
   }
 
-  if (distance <= AWAY_DISTANCE_THRESHOLD) {
+  if (distance <= AWAY_DISTANCE_THRESHOLD + DISTANCE_EPSILON) {
     return {
       rawState: "unknown",
       confidence: clamp01(1 - Math.abs(distance - 1.325) / 0.65),
       distance,
-      trackingScore
+      trackingScore,
+      screenDistance: distance,
+      ...keyboard
     };
   }
 
@@ -94,7 +109,9 @@ export function classifyAttention(
     rawState: "away",
     confidence: clamp01((distance - 1.2) / 1.4),
     distance,
-    trackingScore
+    trackingScore,
+    screenDistance: distance,
+    ...keyboard
   };
 }
 
@@ -133,6 +150,109 @@ function weightedDistance(
   return Math.sqrt(weightedTotal / weightTotal);
 }
 
+function keyboardDiagnostics(
+  features: FrameFeatures,
+  profile: CalibrationProfile
+) {
+  if (!profile.keyboardCenter || !profile.keyboardTolerance) {
+    return null;
+  }
+
+  if (
+    FEATURE_KEYS.some(
+      (key) =>
+        !Number.isFinite(profile.keyboardCenter?.[key]) ||
+        !Number.isFinite(profile.keyboardTolerance?.[key])
+    )
+  ) {
+    return null;
+  }
+
+  const keyboardDistance = weightedDistance(
+    features,
+    profile.keyboardCenter,
+    profile.keyboardTolerance
+  );
+  const keyboardSeparation =
+    profile.keyboardSeparation ??
+    keyboardSeparationFor(profile.center, profile.keyboardCenter, profile.tolerance);
+  const keyboardQuality =
+    profile.keyboardQuality ?? keyboardQualityForSeparation(keyboardSeparation);
+  const keyboardScore = clamp(keyboardProjectionScore(features, profile), 0, 1);
+
+  return {
+    keyboardDistance,
+    keyboardScore,
+    keyboardSeparation,
+    keyboardQuality
+  };
+}
+
+function keyboardProjectionScore(features: FrameFeatures, profile: CalibrationProfile) {
+  if (!profile.keyboardCenter || !profile.keyboardTolerance) {
+    return 0;
+  }
+
+  let numerator = 0;
+  let denominator = 0;
+
+  for (const key of FEATURE_KEYS) {
+    const tolerance = combinedTolerance(key, profile);
+    const axis = (profile.keyboardCenter[key] - profile.center[key]) / tolerance;
+    const value = (features[key] - profile.center[key]) / tolerance;
+    const weight = FEATURE_WEIGHTS[key];
+
+    numerator += value * axis * weight;
+    denominator += axis ** 2 * weight;
+  }
+
+  if (denominator <= MIN_TOLERANCE) {
+    return 0;
+  }
+
+  return numerator / denominator;
+}
+
+function keyboardSeparationFor(
+  screenCenter: CalibrationProfile["center"],
+  keyboardCenter: CalibrationProfile["center"],
+  screenTolerance: CalibrationProfile["tolerance"]
+) {
+  const weightTotal = FEATURE_KEYS.reduce((sum, key) => sum + FEATURE_WEIGHTS[key], 0);
+  const weightedTotal = FEATURE_KEYS.reduce((sum, key) => {
+    const tolerance = Math.max(screenTolerance[key], MIN_TOLERANCE);
+    const normalized = Math.abs(keyboardCenter[key] - screenCenter[key]) / tolerance;
+
+    return sum + normalized ** 2 * FEATURE_WEIGHTS[key];
+  }, 0);
+
+  return Math.sqrt(weightedTotal / weightTotal);
+}
+
+function keyboardQualityForSeparation(separation: number) {
+  if (separation < 0.75) {
+    return "weak";
+  }
+
+  if (separation < 1.35) {
+    return "usable";
+  }
+
+  return "strong";
+}
+
+function combinedTolerance(key: FeatureKey, profile: CalibrationProfile) {
+  return Math.max(
+    profile.tolerance[key],
+    profile.keyboardTolerance?.[key] ?? 0,
+    MIN_TOLERANCE
+  );
+}
+
 function clamp01(value: number): number {
-  return Math.min(Math.max(value, 0), 1);
+  return clamp(value, 0, 1);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }

@@ -316,6 +316,143 @@ p {
   letter-spacing: 0;
 }
 
+.test-diagnostics {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 2;
+  width: min(300px, calc(100% - 48px));
+  padding: 14px;
+  border: 2px solid currentColor;
+  border-radius: 8px;
+  color: #17211b;
+  background: rgb(255 253 244 / 88%);
+  box-shadow: 0 14px 30px rgb(0 0 0 / 14%);
+}
+
+.test-shell--red .test-diagnostics {
+  color: #47120d;
+  background: rgb(255 247 237 / 90%);
+}
+
+.test-diagnostics-quality {
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.test-diagnostics dl {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.test-diagnostics-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.84rem;
+}
+
+.test-diagnostics-row dt {
+  color: inherit;
+  font-weight: 700;
+  opacity: 0.78;
+}
+
+.test-diagnostics-row dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+}
+
+.evaluation-panel {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  z-index: 3;
+  width: min(360px, calc(100% - 48px));
+  color: #17211b;
+}
+
+.evaluation-toggle,
+.evaluation-label-grid button,
+.evaluation-actions button {
+  min-height: 44px;
+  border: 2px solid #17211b;
+  border-radius: 8px;
+  color: #17211b;
+  background: #fffdf4;
+  cursor: pointer;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.evaluation-toggle {
+  padding: 0 14px;
+}
+
+.evaluation-body {
+  display: grid;
+  gap: 12px;
+  max-height: min(520px, calc(100vh - 120px));
+  margin-top: 10px;
+  padding: 14px;
+  border: 2px solid #17211b;
+  border-radius: 8px;
+  overflow-y: auto;
+  background: rgb(255 253 244 / 90%);
+  box-shadow: 0 14px 30px rgb(0 0 0 / 14%);
+}
+
+.evaluation-summary,
+.evaluation-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.evaluation-warning {
+  margin: 0;
+  color: #7b2f24;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.evaluation-label-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.evaluation-label-grid button,
+.evaluation-actions button {
+  min-width: 0;
+  padding: 0 10px;
+  line-height: 1.15;
+}
+
+.evaluation-label-grid button:disabled,
+.evaluation-actions button:disabled {
+  color: #71786f;
+  border-color: #aeb3ac;
+  background: #d7d8cd;
+  cursor: not-allowed;
+}
+
+.evaluation-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.evaluation-actions button {
+  flex: 1;
+}
+
 @media (max-width: 760px) {
   .app-shell {
     padding: 22px;
@@ -362,6 +499,25 @@ p {
   .test-recalibrate {
     top: 16px;
     right: 16px;
+  }
+
+  .test-diagnostics {
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    width: auto;
+  }
+
+  .evaluation-panel {
+    top: auto;
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    width: auto;
+  }
+
+  .evaluation-body {
+    max-height: min(440px, calc(100vh - 132px));
   }
 }
 

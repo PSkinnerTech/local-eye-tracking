@@ -46,7 +46,29 @@ const TOLERANCE_FLOORS: FeatureVector = {
   eyeHorizontal: 0.04,
   faceCenterX: 0.08,
   faceCenterY: 0.08,
-  faceScale: 0.06
+  faceScale: 0.06,
+  leftEyeVertical: 0.035,
+  rightEyeVertical: 0.035,
+  leftEyeHorizontal: 0.04,
+  rightEyeHorizontal: 0.04,
+  leftEyeOpenness: 0.015,
+  rightEyeOpenness: 0.015
+};
+
+const CALIBRATION_FEATURE_WEIGHTS: FeatureVector = {
+  pitch: 1.35,
+  yaw: 1.1,
+  eyeVertical: 1.25,
+  eyeHorizontal: 0.9,
+  leftEyeVertical: 1.25,
+  rightEyeVertical: 1.25,
+  leftEyeHorizontal: 0.9,
+  rightEyeHorizontal: 0.9,
+  leftEyeOpenness: 0.45,
+  rightEyeOpenness: 0.45,
+  faceCenterX: 0.55,
+  faceCenterY: 0.55,
+  faceScale: 0.45
 };
 
 export function hasEnoughSamplesForPoint(
@@ -91,6 +113,14 @@ export function buildCalibrationProfile(
     keyboardSamples.length > 0
       ? toleranceFromSamples(keyboardSamples, keyboardCenter!)
       : undefined;
+  const keyboardSeparation =
+    keyboardCenter && keyboardTolerance
+      ? separationBetween(center, keyboardCenter, tolerance, keyboardTolerance)
+      : undefined;
+  const keyboardQuality =
+    keyboardSeparation === undefined
+      ? undefined
+      : keyboardQualityForSeparation(keyboardSeparation);
 
   return {
     ok: true,
@@ -101,7 +131,9 @@ export function buildCalibrationProfile(
       center,
       tolerance,
       keyboardCenter,
-      keyboardTolerance
+      keyboardTolerance,
+      keyboardSeparation,
+      keyboardQuality
     }
   };
 }
@@ -165,4 +197,40 @@ function percentileValue(values: number[], percentile: number): number {
   const boundedIndex = Math.min(Math.max(index, 0), sorted.length - 1);
 
   return sorted[boundedIndex];
+}
+
+function separationBetween(
+  screenCenter: FeatureVector,
+  keyboardCenter: FeatureVector,
+  screenTolerance: FeatureVector,
+  keyboardTolerance: FeatureVector
+): number {
+  const weightTotal = FEATURE_KEYS.reduce(
+    (sum, key) => sum + CALIBRATION_FEATURE_WEIGHTS[key],
+    0
+  );
+  const weightedTotal = FEATURE_KEYS.reduce((sum, key) => {
+    const tolerance = Math.max(
+      screenTolerance[key],
+      keyboardTolerance[key],
+      TOLERANCE_FLOORS[key]
+    );
+    const normalized = Math.abs(keyboardCenter[key] - screenCenter[key]) / tolerance;
+
+    return sum + normalized ** 2 * CALIBRATION_FEATURE_WEIGHTS[key];
+  }, 0);
+
+  return Math.sqrt(weightedTotal / weightTotal);
+}
+
+function keyboardQualityForSeparation(separation: number) {
+  if (separation < 0.75) {
+    return "weak";
+  }
+
+  if (separation < 1.35) {
+    return "usable";
+  }
+
+  return "strong";
 }

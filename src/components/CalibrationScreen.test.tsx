@@ -12,6 +12,12 @@ function sample(timestampMs: number): FrameFeatures {
     yaw: 0.05,
     eyeVertical: 0.5,
     eyeHorizontal: 0.5,
+    leftEyeVertical: 0.5,
+    rightEyeVertical: 0.5,
+    leftEyeHorizontal: 0.5,
+    rightEyeHorizontal: 0.5,
+    leftEyeOpenness: 0.06,
+    rightEyeOpenness: 0.06,
     faceCenterX: 0.5,
     faceCenterY: 0.45,
     faceScale: 0.62
@@ -34,7 +40,7 @@ describe("CalibrationScreen", () => {
     vi.stubGlobal("requestAnimationFrame", requestAnimationFrame);
     vi.stubGlobal("cancelAnimationFrame", cancelAnimationFrame);
 
-    render(
+    const { rerender } = render(
       <CalibrationScreen
         latestFeatures={sample(0)}
         onComplete={vi.fn()}
@@ -44,11 +50,50 @@ describe("CalibrationScreen", () => {
 
     act(() => {
       rafCallback?.(0);
+    });
+    act(() => {
+      rerender(
+        <CalibrationScreen
+          latestFeatures={sample(2000)}
+          onComplete={vi.fn()}
+          onCancel={vi.fn()}
+        />
+      );
+    });
+    act(() => {
       rafCallback?.(2000);
     });
 
     expect(screen.getByText("Top left")).toBeInTheDocument();
     expect(screen.getByText(/Retrying dot/i)).toBeInTheDocument();
+  });
+
+  it("waits for a detected face before starting the calibration timer", () => {
+    let rafCallback: FrameRequestCallback | undefined;
+    const requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+      rafCallback = callback;
+      return requestAnimationFrame.mock.calls.length;
+    });
+    const cancelAnimationFrame = vi.fn();
+    vi.stubGlobal("requestAnimationFrame", requestAnimationFrame);
+    vi.stubGlobal("cancelAnimationFrame", cancelAnimationFrame);
+
+    render(
+      <CalibrationScreen
+        latestFeatures={null}
+        onComplete={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    act(() => {
+      rafCallback?.(0);
+      rafCallback?.(3000);
+    });
+
+    expect(screen.getByText("Top left")).toBeInTheDocument();
+    expect(screen.getByText(/Waiting for face/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Retrying dot/i)).not.toBeInTheDocument();
   });
 
   it("completes after enough samples are collected for every calibration point", () => {
@@ -152,7 +197,7 @@ describe("CalibrationScreen", () => {
       />
     );
 
-    for (let index = 0; index < MIN_VALID_SAMPLES_PER_POINT; index += 1) {
+    for (let index = 0; index < MIN_VALID_SAMPLES_PER_POINT + 1; index += 1) {
       const timestamp = index * 120;
       act(() => {
         rerender(

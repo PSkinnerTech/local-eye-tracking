@@ -8,7 +8,7 @@ import {
 import type { CalibrationProfile, FrameFeatures } from "./types";
 
 const PITCH_WEIGHT = 1.35;
-const TOTAL_WEIGHT = 6.15;
+const TOTAL_WEIGHT = 11.35;
 
 const profile: CalibrationProfile = {
   createdAtMs: 1000,
@@ -19,6 +19,12 @@ const profile: CalibrationProfile = {
     yaw: 0.05,
     eyeVertical: 0.5,
     eyeHorizontal: 0.5,
+    leftEyeVertical: 0.5,
+    rightEyeVertical: 0.5,
+    leftEyeHorizontal: 0.5,
+    rightEyeHorizontal: 0.5,
+    leftEyeOpenness: 0.06,
+    rightEyeOpenness: 0.06,
     faceCenterX: 0.5,
     faceCenterY: 0.45,
     faceScale: 0.62
@@ -28,6 +34,12 @@ const profile: CalibrationProfile = {
     yaw: 0.05,
     eyeVertical: 0.04,
     eyeHorizontal: 0.04,
+    leftEyeVertical: 0.04,
+    rightEyeVertical: 0.04,
+    leftEyeHorizontal: 0.04,
+    rightEyeHorizontal: 0.04,
+    leftEyeOpenness: 0.015,
+    rightEyeOpenness: 0.015,
     faceCenterX: 0.1,
     faceCenterY: 0.1,
     faceScale: 0.08
@@ -41,6 +53,12 @@ const exactBoundaryProfile: CalibrationProfile = {
     yaw: 0,
     eyeVertical: 0,
     eyeHorizontal: 0,
+    leftEyeVertical: 0,
+    rightEyeVertical: 0,
+    leftEyeHorizontal: 0,
+    rightEyeHorizontal: 0,
+    leftEyeOpenness: 0,
+    rightEyeOpenness: 0,
     faceCenterX: 0,
     faceCenterY: 0,
     faceScale: 0
@@ -50,6 +68,12 @@ const exactBoundaryProfile: CalibrationProfile = {
     yaw: 1,
     eyeVertical: 1,
     eyeHorizontal: 1,
+    leftEyeVertical: 1,
+    rightEyeVertical: 1,
+    leftEyeHorizontal: 1,
+    rightEyeHorizontal: 1,
+    leftEyeOpenness: 1,
+    rightEyeOpenness: 1,
     faceCenterX: 1,
     faceCenterY: 1,
     faceScale: 1
@@ -60,12 +84,31 @@ const keyboardProfile = {
   ...profile,
   keyboardCenter: {
     ...profile.center,
-    eyeVertical: 0.64
+    eyeVertical: 0.64,
+    leftEyeVertical: 0.64,
+    rightEyeVertical: 0.64
   },
   keyboardTolerance: {
     ...profile.tolerance,
-    eyeVertical: 0.035
-  }
+    eyeVertical: 0.035,
+    leftEyeVertical: 0.035,
+    rightEyeVertical: 0.035
+  },
+  keyboardSeparation: 1.8,
+  keyboardQuality: "strong"
+} as CalibrationProfile;
+
+const weakKeyboardProfile = {
+  ...profile,
+  keyboardCenter: {
+    ...profile.center,
+    eyeVertical: 0.52,
+    leftEyeVertical: 0.52,
+    rightEyeVertical: 0.52
+  },
+  keyboardTolerance: profile.tolerance,
+  keyboardSeparation: 0.4,
+  keyboardQuality: "weak"
 } as CalibrationProfile;
 
 function frame(overrides: Partial<FrameFeatures> = {}): FrameFeatures {
@@ -76,6 +119,12 @@ function frame(overrides: Partial<FrameFeatures> = {}): FrameFeatures {
     yaw: 0.05,
     eyeVertical: 0.5,
     eyeHorizontal: 0.5,
+    leftEyeVertical: 0.5,
+    rightEyeVertical: 0.5,
+    leftEyeHorizontal: 0.5,
+    rightEyeHorizontal: 0.5,
+    leftEyeOpenness: 0.06,
+    rightEyeOpenness: 0.06,
     faceCenterX: 0.5,
     faceCenterY: 0.45,
     faceScale: 0.62,
@@ -104,6 +153,24 @@ function frameAtUniformDistance(
     eyeHorizontal:
       calibrationProfile.center.eyeHorizontal +
       calibrationProfile.tolerance.eyeHorizontal * distance,
+    leftEyeVertical:
+      calibrationProfile.center.leftEyeVertical +
+      calibrationProfile.tolerance.leftEyeVertical * distance,
+    rightEyeVertical:
+      calibrationProfile.center.rightEyeVertical +
+      calibrationProfile.tolerance.rightEyeVertical * distance,
+    leftEyeHorizontal:
+      calibrationProfile.center.leftEyeHorizontal +
+      calibrationProfile.tolerance.leftEyeHorizontal * distance,
+    rightEyeHorizontal:
+      calibrationProfile.center.rightEyeHorizontal +
+      calibrationProfile.tolerance.rightEyeHorizontal * distance,
+    leftEyeOpenness:
+      calibrationProfile.center.leftEyeOpenness +
+      calibrationProfile.tolerance.leftEyeOpenness * distance,
+    rightEyeOpenness:
+      calibrationProfile.center.rightEyeOpenness +
+      calibrationProfile.tolerance.rightEyeOpenness * distance,
     faceCenterX:
       calibrationProfile.center.faceCenterX +
       calibrationProfile.tolerance.faceCenterX * distance,
@@ -191,13 +258,37 @@ describe("classifyAttention", () => {
     expect(rawStateForTrackingThreshold(belowThreshold)).toBe("away");
   });
 
+  it("treats sustained keyboard-like 60 percent tracking as away for smoothing", () => {
+    const attention = {
+      ...classifyAttention(frame(), keyboardProfile),
+      trackingScore: 0.6
+    };
+
+    expect(rawStateForTrackingThreshold(attention)).toBe("away");
+  });
+
+  it("treats keyboard-borderline 72 percent tracking as away for smoothing", () => {
+    const attention = {
+      ...classifyAttention(frame(), keyboardProfile),
+      trackingScore: 0.72
+    };
+
+    expect(rawStateForTrackingThreshold(attention)).toBe("away");
+  });
+
   it("classifies eye-only keyboard glances as away when they match the keyboard profile", () => {
     const result = classifyAttention(
       frame({
         pitch: profile.center.pitch,
         yaw: profile.center.yaw,
         eyeVertical: 0.635,
+        leftEyeVertical: 0.635,
+        rightEyeVertical: 0.635,
         eyeHorizontal: profile.center.eyeHorizontal,
+        leftEyeHorizontal: profile.center.leftEyeHorizontal,
+        rightEyeHorizontal: profile.center.rightEyeHorizontal,
+        leftEyeOpenness: profile.center.leftEyeOpenness,
+        rightEyeOpenness: profile.center.rightEyeOpenness,
         faceCenterX: profile.center.faceCenterX,
         faceCenterY: profile.center.faceCenterY,
         faceScale: profile.center.faceScale
@@ -207,6 +298,37 @@ describe("classifyAttention", () => {
 
     expect(result.rawState).toBe("away");
     expect(result.trackingScore).toBeLessThan(TRACKING_SCORE_THRESHOLD);
+    expect(result.keyboardScore).toBeGreaterThan(0.55);
+    expect(result.keyboardSeparation).toBeGreaterThan(1.35);
+    expect(result.keyboardQuality).toBe("strong");
+  });
+
+  it("keeps bottom-screen-like eye movement looking when it is below the keyboard projection threshold", () => {
+    const result = classifyAttention(
+      frame({
+        eyeVertical: 0.55,
+        leftEyeVertical: 0.55,
+        rightEyeVertical: 0.55
+      }),
+      keyboardProfile
+    );
+
+    expect(result.rawState).toBe("looking");
+    expect(result.keyboardScore).toBeLessThan(0.55);
+  });
+
+  it("does not trust keyboard projection when calibration separation is weak", () => {
+    const result = classifyAttention(
+      frame({
+        eyeVertical: 0.52,
+        leftEyeVertical: 0.52,
+        rightEyeVertical: 0.52
+      }),
+      weakKeyboardProfile
+    );
+
+    expect(result.rawState).toBe("looking");
+    expect(result.keyboardQuality).toBe("weak");
   });
 
   it("keeps distance stable when unrelated features have tiny jitter", () => {

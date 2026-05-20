@@ -3,8 +3,16 @@ import { CameraPreview } from "./components/CameraPreview";
 import { CalibrationScreen } from "./components/CalibrationScreen";
 import { SetupScreen } from "./components/SetupScreen";
 import { TestScreen } from "./components/TestScreen";
-import { classifyAttention, rawStateForTrackingThreshold } from "./domain/classifier";
+import { classifyAttention } from "./domain/classifier";
+import {
+  addEvaluationSample,
+  createEvaluationExport,
+  summarizeEvaluation,
+  type EvaluationLabel,
+  type EvaluationSample
+} from "./domain/evaluation";
 import { createAttentionSmoother, type DisplayAttentionState, type SmootherSnapshot } from "./domain/smoothing";
+import { smoothAttentionResult } from "./domain/statePipeline";
 import type { AttentionResult, CalibrationProfile, FrameFeatures } from "./domain/types";
 import { useAttentionLoop } from "./hooks/useAttentionLoop";
 import { useCamera } from "./hooks/useCamera";
@@ -22,9 +30,11 @@ export function App() {
   const [latestFeatures, setLatestFeatures] = useState<FrameFeatures | null>(null);
   const [profile, setProfile] = useState<CalibrationProfile | null>(null);
   const [attention, setAttention] = useState<AttentionResult | null>(null);
+  const [evaluationSamples, setEvaluationSamples] = useState<EvaluationSample[]>([]);
   const [displayState, setDisplayState] = useState<DisplayAttentionState>("green");
   const [smootherSnapshot, setSmootherSnapshot] = useState<SmootherSnapshot | null>(null);
   const smootherRef = useRef(createAttentionSmoother());
+  const evaluationSummary = summarizeEvaluation(evaluationSamples);
 
   useEffect(() => {
     let disposed = false;
@@ -64,11 +74,10 @@ export function App() {
       }
 
       const nextAttention = classifyAttention(features, profile);
-      const thresholdedState = rawStateForTrackingThreshold(nextAttention);
-      const snapshot = smootherRef.current.update(thresholdedState, timestampMs);
-      setAttention(nextAttention);
-      setSmootherSnapshot(snapshot);
-      setDisplayState(snapshot.displayState);
+      const smoothed = smoothAttentionResult(nextAttention, smootherRef.current, timestampMs);
+      setAttention(smoothed.attention);
+      setSmootherSnapshot(smoothed.smootherSnapshot);
+      setDisplayState(smoothed.displayState);
     },
     [mode, profile]
   );
@@ -79,6 +88,10 @@ export function App() {
       "The tracker could not process webcam frames. MediaPipe needs WebGL support in this browser; try enabling hardware acceleration or using another browser."
     );
     setLatestFeatures(null);
+    smootherRef.current.reset();
+    setAttention(null);
+    setSmootherSnapshot(null);
+    setDisplayState("green");
   }, []);
 
   useAttentionLoop({
@@ -96,8 +109,46 @@ export function App() {
     setDisplayState("green");
   }, []);
 
+  const captureEvaluationSample = useCallback(
+    (label: EvaluationLabel) => {
+      if (!attention || !smootherSnapshot) {
+        return;
+      }
+
+      setEvaluationSamples((samples) =>
+        addEvaluationSample(samples, {
+          label,
+          timestampMs: latestFeatures?.timestampMs ?? performance.now(),
+          features: latestFeatures,
+          attention,
+          smootherSnapshot
+        })
+      );
+    },
+    [attention, latestFeatures, smootherSnapshot]
+  );
+
+  const clearEvaluationSamples = useCallback(() => {
+    setEvaluationSamples([]);
+  }, []);
+
+  const exportEvaluationSamples = useCallback(() => {
+    const payload = createEvaluationExport(evaluationSamples);
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json"
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `local-eye-tracking-evaluation-${payload.createdAtMs}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [evaluationSamples]);
+
   const beginCalibration = useCallback(() => {
     resetTestingState();
+    setEvaluationSamples([]);
     setProfile(null);
     setMode("calibration");
   }, [resetTestingState]);
@@ -148,6 +199,15 @@ export function App() {
           displayState={displayState}
           attention={attention}
           smoother={smootherSnapshot}
+          evaluation={{
+            samples: evaluationSamples,
+            summary: evaluationSummary,
+            disabledReason:
+              attention && smootherSnapshot ? undefined : "Waiting for a live tracking result",
+            onCapture: captureEvaluationSample,
+            onClear: clearEvaluationSamples,
+            onExport: exportEvaluationSamples
+          }}
           onRecalibrate={beginCalibration}
         />
       ) : null}
