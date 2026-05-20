@@ -3,8 +3,9 @@ import { CameraPreview } from "./components/CameraPreview";
 import { CalibrationScreen } from "./components/CalibrationScreen";
 import { SetupScreen } from "./components/SetupScreen";
 import { TestScreen } from "./components/TestScreen";
-import { classifyAttention, rawStateForTrackingThreshold } from "./domain/classifier";
+import { classifyAttention } from "./domain/classifier";
 import { createAttentionSmoother, type DisplayAttentionState, type SmootherSnapshot } from "./domain/smoothing";
+import { smoothAttentionResult } from "./domain/statePipeline";
 import type { AttentionResult, CalibrationProfile, FrameFeatures } from "./domain/types";
 import { useAttentionLoop } from "./hooks/useAttentionLoop";
 import { useCamera } from "./hooks/useCamera";
@@ -64,11 +65,10 @@ export function App() {
       }
 
       const nextAttention = classifyAttention(features, profile);
-      const thresholdedState = rawStateForTrackingThreshold(nextAttention);
-      const snapshot = smootherRef.current.update(thresholdedState, timestampMs);
-      setAttention(nextAttention);
-      setSmootherSnapshot(snapshot);
-      setDisplayState(snapshot.displayState);
+      const smoothed = smoothAttentionResult(nextAttention, smootherRef.current, timestampMs);
+      setAttention(smoothed.attention);
+      setSmootherSnapshot(smoothed.smootherSnapshot);
+      setDisplayState(smoothed.displayState);
     },
     [mode, profile]
   );
