@@ -80,6 +80,29 @@ describe("TestScreen", () => {
 
     expect(screen.getByRole("button", { name: "Evaluate" })).toBeInTheDocument();
   });
+
+  it("shows face-framing guidance when the face is missing", () => {
+    render(
+      <TestScreen
+        displayState="red"
+        attention={{
+          rawState: "face-missing",
+          confidence: 1,
+          distance: Number.POSITIVE_INFINITY,
+          trackingScore: 0
+        }}
+        smoother={{
+          displayState: "red",
+          rawState: "face-missing",
+          awayDurationMs: 900
+        }}
+        onRecalibrate={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Face not detected")).toBeInTheDocument();
+    expect(screen.getByText("Move back into the webcam frame")).toBeInTheDocument();
+  });
 });
 
 function emptyEvaluationLabel() {

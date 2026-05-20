@@ -38,6 +38,7 @@ export function TestScreen({
     attention?.rawState ??
     (displayState === "green" || displayState === "red" ? "unknown" : displayState);
   const statusLabel = statusFor(rawState);
+  const guidance = guidanceFor(rawState);
   const confidence =
     attention && attention.rawState !== "face-missing" && Number.isFinite(attention.trackingScore)
       ? `${Math.round(attention.trackingScore * 100)}% tracking`
@@ -54,6 +55,7 @@ export function TestScreen({
       {evaluation ? <EvaluationPanel {...evaluation} /> : null}
       <section className="test-readout" aria-live="polite">
         <p className="test-status">{statusLabel}</p>
+        {guidance ? <p className="test-guidance">{guidance}</p> : null}
         <p className="test-confidence">{confidence}</p>
       </section>
       {diagnostics ? (
@@ -86,6 +88,14 @@ function statusFor(rawState: string): string {
     default:
       return "Checking";
   }
+}
+
+function guidanceFor(rawState: string): string | null {
+  if (rawState === "face-missing") {
+    return "Move back into the webcam frame";
+  }
+
+  return null;
 }
 
 function diagnosticsFor(attention: AttentionResult | null) {
