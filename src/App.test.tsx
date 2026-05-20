@@ -132,6 +132,77 @@ describe("App", () => {
     expect(screen.getByText("Waiting for a live tracking result")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Keyboard" })).toBeDisabled();
   });
+
+  it("exports evaluation samples with a readable baseline filename", async () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    const createObjectURL = vi.fn(() => "blob:evaluation");
+    const revokeObjectURL = vi.fn();
+    const clickedDownloads: string[] = [];
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        clickedDownloads.push(this.download);
+      });
+
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: createObjectURL
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: revokeObjectURL
+    });
+
+    try {
+      appMocks.cameraStatus = "ready";
+      render(<App />);
+
+      const startCalibration = screen.getByRole("button", { name: "Start calibration" });
+      await waitFor(() => expect(startCalibration).toBeEnabled());
+      fireEvent.click(startCalibration);
+      fireEvent.click(screen.getByRole("button", { name: "Finish calibration" }));
+
+      await act(async () => {
+        appMocks.latestAttentionLoopOptions?.onFrame(frameFeatures(200), 200);
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "Evaluate" }));
+      fireEvent.click(screen.getByRole("button", { name: "Keyboard" }));
+
+      const exportButton = screen.getByRole("button", { name: "Export JSON" });
+      await waitFor(() => expect(exportButton).toBeEnabled());
+      fireEvent.click(exportButton);
+
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+      expect(clickedDownloads[0]).toMatch(
+        /^eyes-baseline-eval-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-1samples\.json$/
+      );
+      expect(clickedDownloads[0]).not.toContain(":");
+      expect(createObjectURL).toHaveBeenCalledTimes(1);
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:evaluation");
+    } finally {
+      clickSpy.mockRestore();
+
+      if (originalCreateObjectURL) {
+        Object.defineProperty(URL, "createObjectURL", {
+          configurable: true,
+          value: originalCreateObjectURL
+        });
+      } else {
+        Reflect.deleteProperty(URL, "createObjectURL");
+      }
+
+      if (originalRevokeObjectURL) {
+        Object.defineProperty(URL, "revokeObjectURL", {
+          configurable: true,
+          value: originalRevokeObjectURL
+        });
+      } else {
+        Reflect.deleteProperty(URL, "revokeObjectURL");
+      }
+    }
+  });
 });
 
 function frameFeatures(timestampMs: number): FrameFeatures {

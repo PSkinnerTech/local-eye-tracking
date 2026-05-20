@@ -19,15 +19,67 @@ export const EVALUATION_LABELS = [
 
 export type EvaluationLabel = (typeof EVALUATION_LABELS)[number];
 
-const SCREEN_LABELS = new Set<EvaluationLabel>([
-  "screen-center",
-  "screen-bottom",
-  "lean-left",
-  "lean-right",
-  "low-light"
-]);
+export const BASELINE_TARGET_COUNT = 20;
 
-const AWAY_LABELS = new Set<EvaluationLabel>(["keyboard", "off-left", "off-right"]);
+export type EvaluationLabelRole = "screen" | "away";
+
+export type EvaluationLabelMetadata = {
+  displayName: string;
+  role: EvaluationLabelRole;
+  targetCount: number;
+  instruction: string;
+};
+
+export const EVALUATION_LABEL_METADATA: Record<EvaluationLabel, EvaluationLabelMetadata> = {
+  "screen-center": {
+    displayName: "Screen center",
+    role: "screen",
+    targetCount: BASELINE_TARGET_COUNT,
+    instruction: "Look naturally at the middle of the screen."
+  },
+  "screen-bottom": {
+    displayName: "Screen bottom",
+    role: "screen",
+    targetCount: BASELINE_TARGET_COUNT,
+    instruction: "Look at the lower area of the screen."
+  },
+  keyboard: {
+    displayName: "Keyboard",
+    role: "away",
+    targetCount: BASELINE_TARGET_COUNT,
+    instruction: "Look down toward the keyboard."
+  },
+  "off-left": {
+    displayName: "Off left",
+    role: "away",
+    targetCount: BASELINE_TARGET_COUNT,
+    instruction: "Look away to the left of the screen."
+  },
+  "off-right": {
+    displayName: "Off right",
+    role: "away",
+    targetCount: BASELINE_TARGET_COUNT,
+    instruction: "Look away to the right of the screen."
+  },
+  "lean-left": {
+    displayName: "Lean left",
+    role: "screen",
+    targetCount: BASELINE_TARGET_COUNT,
+    instruction: "Lean left while keeping attention on the screen."
+  },
+  "lean-right": {
+    displayName: "Lean right",
+    role: "screen",
+    targetCount: BASELINE_TARGET_COUNT,
+    instruction: "Lean right while keeping attention on the screen."
+  },
+  "low-light": {
+    displayName: "Low light",
+    role: "screen",
+    targetCount: BASELINE_TARGET_COUNT,
+    instruction: "Look at the screen under dimmer lighting."
+  }
+};
 
 export type EvaluationSample = {
   id: string;
@@ -46,6 +98,11 @@ export type EvaluationSample = {
 };
 
 export type EvaluationSummaryByLabel = {
+  displayName?: string;
+  role?: EvaluationLabelRole;
+  targetCount?: number;
+  remainingCount?: number;
+  isComplete?: boolean;
   sampleCount: number;
   lookingPercent: number;
   unknownPercent: number;
@@ -57,6 +114,10 @@ export type EvaluationSummaryByLabel = {
 
 export type EvaluationSummary = {
   totalSamples: number;
+  targetSamples?: number;
+  completedLabels?: number;
+  remainingSamples?: number;
+  isComplete?: boolean;
   falseLookingRate: number | null;
   falseAwayRate: number | null;
   labels: Record<EvaluationLabel, EvaluationSummaryByLabel>;
@@ -106,11 +167,28 @@ export function summarizeEvaluation(samples: EvaluationSample[]): EvaluationSumm
     EVALUATION_LABELS.map((label) => [label, summarizeLabel(samples, label)])
   ) as Record<EvaluationLabel, EvaluationSummaryByLabel>;
 
-  const awaySamples = samples.filter((sample) => AWAY_LABELS.has(sample.label));
-  const screenSamples = samples.filter((sample) => SCREEN_LABELS.has(sample.label));
+  const awaySamples = samples.filter(
+    (sample) => EVALUATION_LABEL_METADATA[sample.label].role === "away"
+  );
+  const screenSamples = samples.filter(
+    (sample) => EVALUATION_LABEL_METADATA[sample.label].role === "screen"
+  );
+  const targetSamples = EVALUATION_LABELS.reduce(
+    (total, label) => total + EVALUATION_LABEL_METADATA[label].targetCount,
+    0
+  );
+  const completedLabels = EVALUATION_LABELS.filter((label) => labels[label].isComplete).length;
+  const remainingSamples = EVALUATION_LABELS.reduce(
+    (total, label) => total + (labels[label].remainingCount ?? 0),
+    0
+  );
 
   return {
     totalSamples: samples.length,
+    targetSamples,
+    completedLabels,
+    remainingSamples,
+    isComplete: remainingSamples === 0,
     falseLookingRate: rate(
       awaySamples.filter((sample) => sample.rawState === "looking").length,
       awaySamples.length
@@ -121,6 +199,22 @@ export function summarizeEvaluation(samples: EvaluationSample[]): EvaluationSumm
     ),
     labels
   };
+}
+
+export function evaluationExportFilename(payload: EvaluationExport): string {
+  const createdAt = new Date(payload.createdAtMs);
+  const date = [
+    createdAt.getFullYear(),
+    padDatePart(createdAt.getMonth() + 1),
+    padDatePart(createdAt.getDate())
+  ].join("-");
+  const time = [
+    padDatePart(createdAt.getHours()),
+    padDatePart(createdAt.getMinutes()),
+    padDatePart(createdAt.getSeconds())
+  ].join("-");
+
+  return `eyes-baseline-eval-${date}T${time}-${payload.samples.length}samples.json`;
 }
 
 export function createEvaluationExport(
@@ -139,9 +233,16 @@ function summarizeLabel(
   samples: EvaluationSample[],
   label: EvaluationLabel
 ): EvaluationSummaryByLabel {
+  const metadata = EVALUATION_LABEL_METADATA[label];
   const labelSamples = samples.filter((sample) => sample.label === label);
+  const remainingCount = Math.max(0, metadata.targetCount - labelSamples.length);
 
   return {
+    displayName: metadata.displayName,
+    role: metadata.role,
+    targetCount: metadata.targetCount,
+    remainingCount,
+    isComplete: remainingCount === 0,
     sampleCount: labelSamples.length,
     lookingPercent: statePercent(labelSamples, "looking"),
     unknownPercent: statePercent(labelSamples, "unknown"),
@@ -154,6 +255,10 @@ function summarizeLabel(
         .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
     )
   };
+}
+
+function padDatePart(value: number): string {
+  return value.toString().padStart(2, "0");
 }
 
 function statePercent(samples: EvaluationSample[], rawState: RawAttentionState): number {

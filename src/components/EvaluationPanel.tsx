@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  EVALUATION_LABEL_METADATA,
   EVALUATION_LABELS,
   type EvaluationLabel,
   type EvaluationSample,
@@ -15,17 +16,6 @@ type EvaluationPanelProps = {
   onExport: () => void;
 };
 
-const LABEL_TEXT: Record<EvaluationLabel, string> = {
-  "screen-center": "Screen center",
-  "screen-bottom": "Screen bottom",
-  keyboard: "Keyboard",
-  "off-left": "Off left",
-  "off-right": "Off right",
-  "lean-left": "Lean left",
-  "lean-right": "Lean right",
-  "low-light": "Low light"
-};
-
 export function EvaluationPanel({
   samples,
   summary,
@@ -37,6 +27,7 @@ export function EvaluationPanel({
   const [isOpen, setIsOpen] = useState(false);
   const hasSamples = samples.length > 0;
   const captureDisabled = Boolean(disabledReason);
+  const targetSamples = summary.targetSamples ?? totalTargetSamples();
 
   return (
     <aside className="evaluation-panel" aria-label="Evaluation capture">
@@ -52,7 +43,9 @@ export function EvaluationPanel({
       {isOpen ? (
         <div className="evaluation-body">
           <div className="evaluation-summary" aria-label="Evaluation summary">
-            <span>Samples {summary.totalSamples}</span>
+            <span>
+              Progress {summary.totalSamples}/{targetSamples}
+            </span>
             <span>False-looking {formatPercent(summary.falseLookingRate)}</span>
             <span>False-away {formatPercent(summary.falseAwayRate)}</span>
           </div>
@@ -65,19 +58,29 @@ export function EvaluationPanel({
                 key={label}
                 type="button"
                 disabled={captureDisabled}
+                title={EVALUATION_LABEL_METADATA[label].instruction}
                 onClick={() => onCapture(label)}
               >
-                {LABEL_TEXT[label]}
+                {labelDisplayName(summary, label)}
               </button>
             ))}
           </div>
 
           <div className="evaluation-counts" aria-label="Evaluation counts">
-            {EVALUATION_LABELS.map((label) => (
-              <span key={label}>
-                {LABEL_TEXT[label]} {summary.labels[label].sampleCount}
-              </span>
-            ))}
+            {EVALUATION_LABELS.map((label) => {
+              const labelSummary = summary.labels[label];
+              const metadata = EVALUATION_LABEL_METADATA[label];
+              const displayName = labelSummary.displayName ?? metadata.displayName;
+              const targetCount = labelSummary.targetCount ?? metadata.targetCount;
+              const isComplete = labelSummary.isComplete ?? labelSummary.sampleCount >= targetCount;
+
+              return (
+                <span key={label}>
+                  {displayName} {labelSummary.sampleCount}/{targetCount}
+                  {isComplete ? " Done" : ""}
+                </span>
+              );
+            })}
           </div>
 
           <div className="evaluation-actions">
@@ -91,6 +94,17 @@ export function EvaluationPanel({
         </div>
       ) : null}
     </aside>
+  );
+}
+
+function labelDisplayName(summary: EvaluationSummary, label: EvaluationLabel): string {
+  return summary.labels[label].displayName ?? EVALUATION_LABEL_METADATA[label].displayName;
+}
+
+function totalTargetSamples(): number {
+  return EVALUATION_LABELS.reduce(
+    (total, label) => total + EVALUATION_LABEL_METADATA[label].targetCount,
+    0
   );
 }
 

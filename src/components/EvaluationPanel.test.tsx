@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
+  BASELINE_TARGET_COUNT,
+  EVALUATION_LABEL_METADATA,
   EVALUATION_LABELS,
   type EvaluationLabel,
   type EvaluationSample,
@@ -9,8 +11,16 @@ import {
 } from "../domain/evaluation";
 import { EvaluationPanel } from "./EvaluationPanel";
 
-function labelSummary(sampleCount = 0): EvaluationSummaryByLabel {
+function labelSummary(label: EvaluationLabel, sampleCount = 0): EvaluationSummaryByLabel {
+  const metadata = EVALUATION_LABEL_METADATA[label];
+  const remainingCount = Math.max(0, metadata.targetCount - sampleCount);
+
   return {
+    displayName: metadata.displayName,
+    role: metadata.role,
+    targetCount: metadata.targetCount,
+    remainingCount,
+    isComplete: remainingCount === 0,
     sampleCount,
     lookingPercent: 0,
     unknownPercent: 0,
@@ -21,14 +31,25 @@ function labelSummary(sampleCount = 0): EvaluationSummaryByLabel {
   };
 }
 
-function summary(totalSamples = 0): EvaluationSummary {
+function summary(counts: Partial<Record<EvaluationLabel, number>> = {}): EvaluationSummary {
+  const totalSamples = Object.values(counts).reduce((total, count) => total + (count ?? 0), 0);
+  const labels = Object.fromEntries(
+    EVALUATION_LABELS.map((label) => [label, labelSummary(label, counts[label] ?? 0)])
+  ) as Record<EvaluationLabel, EvaluationSummaryByLabel>;
+  const remainingSamples = Object.values(labels).reduce(
+    (total, label) => total + (label.remainingCount ?? 0),
+    0
+  );
+
   return {
     totalSamples,
+    targetSamples: EVALUATION_LABELS.length * BASELINE_TARGET_COUNT,
+    completedLabels: Object.values(labels).filter((label) => label.isComplete).length,
+    remainingSamples,
+    isComplete: remainingSamples === 0,
     falseLookingRate: 0.25,
     falseAwayRate: 0.1,
-    labels: Object.fromEntries(
-      EVALUATION_LABELS.map((label) => [label, labelSummary(label === "keyboard" ? 1 : 0)])
-    ) as Record<EvaluationLabel, EvaluationSummaryByLabel>
+    labels
   };
 }
 
@@ -80,11 +101,11 @@ describe("EvaluationPanel", () => {
     expect(onCapture).toHaveBeenCalledWith("keyboard");
   });
 
-  it("shows sample and error-rate summary text", () => {
+  it("shows target progress and error-rate summary text", () => {
     render(
       <EvaluationPanel
         samples={[keyboardSample]}
-        summary={summary(1)}
+        summary={summary({ keyboard: 1 })}
         onCapture={vi.fn()}
         onClear={vi.fn()}
         onExport={vi.fn()}
@@ -93,9 +114,26 @@ describe("EvaluationPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Evaluate" }));
 
-    expect(screen.getByText("Samples 1")).toBeInTheDocument();
+    expect(screen.getByText("Progress 1/160")).toBeInTheDocument();
     expect(screen.getByText("False-looking 25%")).toBeInTheDocument();
     expect(screen.getByText("False-away 10%")).toBeInTheDocument();
+  });
+
+  it("shows per-label target counts and marks completed labels done", () => {
+    render(
+      <EvaluationPanel
+        samples={[keyboardSample]}
+        summary={summary({ "screen-center": 1, keyboard: BASELINE_TARGET_COUNT })}
+        onCapture={vi.fn()}
+        onClear={vi.fn()}
+        onExport={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Evaluate" }));
+
+    expect(screen.getByText("Screen center 1/20")).toBeInTheDocument();
+    expect(screen.getByText("Keyboard 20/20 Done")).toBeInTheDocument();
   });
 
   it("renders a warning and disables Keyboard when disabledReason is provided", () => {

@@ -6,6 +6,21 @@ export type NormalizedLandmark = {
   z?: number;
 };
 
+export type FaceFrameOutputs = {
+  blendshapes?: {
+    categories?: {
+      categoryName?: string;
+      score?: number;
+    }[];
+  };
+  facialTransformationMatrix?: {
+    rows?: number;
+    columns?: number;
+    data?: ArrayLike<number>;
+    getAsFloat32Array?: () => ArrayLike<number>;
+  };
+};
+
 export const LANDMARK = {
   noseTip: 1,
   chin: 152,
@@ -25,10 +40,24 @@ export const LANDMARK = {
 
 const REQUIRED_LANDMARKS = Object.values(LANDMARK);
 const MIN_DENOMINATOR = 0.0001;
+const MATRIX_SIZE = 4;
+const EULER_EPSILON = 0.000001;
+
+const BLENDSHAPE_DIAGNOSTICS = [
+  "eyeLookDownLeft",
+  "eyeLookDownRight",
+  "eyeBlinkLeft",
+  "eyeBlinkRight",
+  "eyeLookInLeft",
+  "eyeLookInRight",
+  "eyeLookOutLeft",
+  "eyeLookOutRight"
+] as const;
 
 export function extractFrameFeatures(
   landmarks: NormalizedLandmark[],
-  timestampMs: number
+  timestampMs: number,
+  outputs?: FaceFrameOutputs
 ): FrameFeatures | null {
   if (!hasRequiredLandmarks(landmarks)) {
     return null;
@@ -65,12 +94,15 @@ export function extractFrameFeatures(
   const rightEyeHorizontal = ratio(rightIris.x, rightEyeInner.x, rightEyeOuter.x);
   const leftEyeOpenness = Math.abs(leftEyeBottom.y - leftEyeTop.y);
   const rightEyeOpenness = Math.abs(rightEyeBottom.y - rightEyeTop.y);
+  const landmarkPitch = (nose.y - eyeCenterY) / faceHeightFromEyes;
+  const landmarkYaw = (nose.x - (leftFace.x + rightFace.x) / 2) / faceWidth;
+  const matrixPose = extractMatrixPose(outputs?.facialTransformationMatrix);
 
   return {
     timestampMs,
     faceDetected: true,
-    pitch: (nose.y - eyeCenterY) / faceHeightFromEyes,
-    yaw: (nose.x - (leftFace.x + rightFace.x) / 2) / faceWidth,
+    pitch: matrixPose?.pitch ?? landmarkPitch,
+    yaw: matrixPose?.yaw ?? landmarkYaw,
     eyeVertical: (leftEyeVertical + rightEyeVertical) / 2,
     eyeHorizontal: (leftEyeHorizontal + rightEyeHorizontal) / 2,
     leftEyeVertical,
@@ -81,8 +113,110 @@ export function extractFrameFeatures(
     rightEyeOpenness,
     faceCenterX: (bounds.minX + bounds.maxX) / 2,
     faceCenterY: (bounds.minY + bounds.maxY) / 2,
-    faceScale: Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY)
+    faceScale: Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY),
+    ...(matrixPose
+      ? {
+          matrixPitch: matrixPose.pitch,
+          matrixYaw: matrixPose.yaw,
+          matrixRoll: matrixPose.roll
+        }
+      : {}),
+    ...extractBlendshapeDiagnostics(outputs?.blendshapes)
   };
+}
+
+function extractBlendshapeDiagnostics(
+  blendshapes: FaceFrameOutputs["blendshapes"] | undefined
+) {
+  if (!blendshapes?.categories) {
+    return {};
+  }
+
+  const scores = new Map<string, number>();
+  for (const category of blendshapes.categories) {
+    if (
+      category.categoryName &&
+      category.score !== undefined &&
+      Number.isFinite(category.score)
+    ) {
+      scores.set(category.categoryName, category.score);
+    }
+  }
+
+  const diagnostics: Partial<Pick<FrameFeatures, (typeof BLENDSHAPE_DIAGNOSTICS)[number]>> = {};
+  for (const key of BLENDSHAPE_DIAGNOSTICS) {
+    const score = scores.get(key);
+    if (score !== undefined) {
+      diagnostics[key] = score;
+    }
+  }
+
+  return diagnostics;
+}
+
+function extractMatrixPose(
+  matrix: FaceFrameOutputs["facialTransformationMatrix"] | undefined
+) {
+  const data = matrixData(matrix);
+  if (!data) {
+    return null;
+  }
+
+  const r00 = data[0];
+  const r10 = data[4];
+  const r20 = data[8];
+  const r21 = data[9];
+  const r22 = data[10];
+  const sinYaw = -r20;
+
+  if (sinYaw < -1 - EULER_EPSILON || sinYaw > 1 + EULER_EPSILON) {
+    return null;
+  }
+
+  const pitch = Math.atan2(r21, r22);
+  const yaw = Math.asin(clamp(sinYaw, -1, 1));
+  const roll = Math.atan2(r10, r00);
+
+  if (![pitch, yaw, roll].every(Number.isFinite)) {
+    return null;
+  }
+
+  return { pitch, yaw, roll };
+}
+
+function matrixData(
+  matrix: FaceFrameOutputs["facialTransformationMatrix"] | undefined
+): number[] | null {
+  if (!matrix) {
+    return null;
+  }
+
+  if (
+    (matrix.rows !== undefined && matrix.rows !== MATRIX_SIZE) ||
+    (matrix.columns !== undefined && matrix.columns !== MATRIX_SIZE)
+  ) {
+    return null;
+  }
+
+  let data = matrix.data;
+  if (!data && matrix.getAsFloat32Array) {
+    try {
+      data = matrix.getAsFloat32Array();
+    } catch {
+      return null;
+    }
+  }
+
+  if (!data || data.length < MATRIX_SIZE * MATRIX_SIZE) {
+    return null;
+  }
+
+  const values = Array.from(data).slice(0, MATRIX_SIZE * MATRIX_SIZE);
+  if (!values.every(Number.isFinite)) {
+    return null;
+  }
+
+  return values;
 }
 
 function hasRequiredLandmarks(landmarks: NormalizedLandmark[]): boolean {
@@ -118,7 +252,11 @@ function ratio(value: number, start: number, end: number): number {
 }
 
 function clamp01(value: number): number {
-  return Math.min(Math.max(value, 0), 1);
+  return clamp(value, 0, 1);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
 
 function isFinitePoint(landmark: NormalizedLandmark | undefined): landmark is NormalizedLandmark {

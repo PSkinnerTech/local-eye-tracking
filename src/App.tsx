@@ -7,6 +7,7 @@ import { classifyAttention } from "./domain/classifier";
 import {
   addEvaluationSample,
   createEvaluationExport,
+  evaluationExportFilename,
   summarizeEvaluation,
   type EvaluationLabel,
   type EvaluationSample
@@ -141,7 +142,7 @@ export function App() {
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = `local-eye-tracking-evaluation-${payload.createdAtMs}.json`;
+    link.download = evaluationExportFilename(payload);
     link.click();
     URL.revokeObjectURL(url);
   }, [evaluationSamples]);

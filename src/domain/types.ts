@@ -41,6 +41,17 @@ export type FrameFeatures = Record<FeatureKey, number> & {
   timestampMs: number;
   faceDetected: boolean;
   point?: CalibrationPointId;
+  matrixPitch?: number;
+  matrixYaw?: number;
+  matrixRoll?: number;
+  eyeLookDownLeft?: number;
+  eyeLookDownRight?: number;
+  eyeBlinkLeft?: number;
+  eyeBlinkRight?: number;
+  eyeLookInLeft?: number;
+  eyeLookInRight?: number;
+  eyeLookOutLeft?: number;
+  eyeLookOutRight?: number;
 };
 
 export type FeatureVector = Record<FeatureKey, number>;

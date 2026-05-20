@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  AWAY_DISTANCE_THRESHOLD,
-  classifyAttention,
-  rawStateForTrackingThreshold,
-  TRACKING_SCORE_THRESHOLD
-} from "./classifier";
+import { classifyAttention } from "./classifier";
 import type { CalibrationProfile, FrameFeatures } from "./types";
 
 const PITCH_WEIGHT = 1.35;
@@ -241,41 +236,6 @@ describe("classifyAttention", () => {
     expect(result.distance).toBeGreaterThan(1.65);
   });
 
-  it("turns low tracking scores into an away state for smoothing", () => {
-    const thresholdDistance = (1 - TRACKING_SCORE_THRESHOLD) * AWAY_DISTANCE_THRESHOLD;
-    const atThreshold = classifyAttention(
-      frameAtUniformDistance(thresholdDistance, exactBoundaryProfile),
-      exactBoundaryProfile
-    );
-    const belowThreshold = classifyAttention(
-      frameAtUniformDistance(thresholdDistance + 0.01, exactBoundaryProfile),
-      exactBoundaryProfile
-    );
-
-    expect(atThreshold.trackingScore).toBeCloseTo(TRACKING_SCORE_THRESHOLD, 10);
-    expect(rawStateForTrackingThreshold(atThreshold)).toBe("looking");
-    expect(belowThreshold.trackingScore).toBeLessThan(TRACKING_SCORE_THRESHOLD);
-    expect(rawStateForTrackingThreshold(belowThreshold)).toBe("away");
-  });
-
-  it("treats sustained keyboard-like 60 percent tracking as away for smoothing", () => {
-    const attention = {
-      ...classifyAttention(frame(), keyboardProfile),
-      trackingScore: 0.6
-    };
-
-    expect(rawStateForTrackingThreshold(attention)).toBe("away");
-  });
-
-  it("treats keyboard-borderline 72 percent tracking as away for smoothing", () => {
-    const attention = {
-      ...classifyAttention(frame(), keyboardProfile),
-      trackingScore: 0.72
-    };
-
-    expect(rawStateForTrackingThreshold(attention)).toBe("away");
-  });
-
   it("classifies eye-only keyboard glances as away when they match the keyboard profile", () => {
     const result = classifyAttention(
       frame({
@@ -297,7 +257,7 @@ describe("classifyAttention", () => {
     );
 
     expect(result.rawState).toBe("away");
-    expect(result.trackingScore).toBeLessThan(TRACKING_SCORE_THRESHOLD);
+    expect(result.trackingScore).toBe(0);
     expect(result.keyboardScore).toBeGreaterThan(0.55);
     expect(result.keyboardSeparation).toBeGreaterThan(1.35);
     expect(result.keyboardQuality).toBe("strong");

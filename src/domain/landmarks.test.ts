@@ -58,6 +58,13 @@ describe("extractFrameFeatures", () => {
     expect(features?.rightEyeOpenness).toBeCloseTo(0.06, 3);
   });
 
+  it("preserves landmark-derived features when optional MediaPipe outputs are missing", () => {
+    const withoutOutputs = extractFrameFeatures(landmarks(), 1234);
+    const withEmptyOutputs = extractFrameFeatures(landmarks(), 1234, {});
+
+    expect(withEmptyOutputs).toEqual(withoutOutputs);
+  });
+
   it("returns null when required landmarks are missing", () => {
     expect(extractFrameFeatures([], 1234)).toBeNull();
   });
@@ -94,5 +101,57 @@ describe("extractFrameFeatures", () => {
     expect(eyeOnlyDown!.pitch).toBeCloseTo(neutral!.pitch, 6);
     expect(eyeOnlyDown!.leftEyeVertical).toBeGreaterThan(neutral!.leftEyeVertical);
     expect(eyeOnlyDown!.rightEyeVertical).toBeGreaterThan(neutral!.rightEyeVertical);
+  });
+
+  it("copies eye blendshape scores to optional diagnostics", () => {
+    const features = extractFrameFeatures(landmarks(), 1234, {
+      blendshapes: {
+        categories: [
+          { categoryName: "eyeLookDownLeft", score: 0.11 },
+          { categoryName: "eyeLookDownRight", score: 0.12 },
+          { categoryName: "eyeBlinkLeft", score: 0.21 },
+          { categoryName: "eyeBlinkRight", score: 0.22 },
+          { categoryName: "eyeLookInLeft", score: 0.31 },
+          { categoryName: "eyeLookInRight", score: 0.32 },
+          { categoryName: "eyeLookOutLeft", score: 0.41 },
+          { categoryName: "eyeLookOutRight", score: 0.42 }
+        ]
+      }
+    });
+
+    expect(features).not.toBeNull();
+    expect(features!.eyeLookDownLeft).toBe(0.11);
+    expect(features!.eyeLookDownRight).toBe(0.12);
+    expect(features!.eyeBlinkLeft).toBe(0.21);
+    expect(features!.eyeBlinkRight).toBe(0.22);
+    expect(features!.eyeLookInLeft).toBe(0.31);
+    expect(features!.eyeLookInRight).toBe(0.32);
+    expect(features!.eyeLookOutLeft).toBe(0.41);
+    expect(features!.eyeLookOutRight).toBe(0.42);
+  });
+
+  it("uses a valid facial transformation matrix for head pose diagnostics", () => {
+    const fallback = extractFrameFeatures(landmarks(), 1234);
+    const features = extractFrameFeatures(landmarks(), 1234, {
+      facialTransformationMatrix: {
+        rows: 4,
+        columns: 4,
+        data: [
+          0.879923176, -0.435732131, -0.189400933, 0,
+          0.372025552, 0.879838033, -0.295773602, 0,
+          0.295520207, 0.189796061, 0.936293364, 0,
+          0, 0, 0, 1
+        ]
+      }
+    });
+
+    expect(fallback).not.toBeNull();
+    expect(features).not.toBeNull();
+    expect(features!.pitch).not.toBeCloseTo(fallback!.pitch, 6);
+    expect(features!.pitch).toBeCloseTo(0.2, 6);
+    expect(features!.yaw).toBeCloseTo(-0.3, 6);
+    expect(features!.matrixPitch).toBeCloseTo(0.2, 6);
+    expect(features!.matrixYaw).toBeCloseTo(-0.3, 6);
+    expect(features!.matrixRoll).toBeCloseTo(0.4, 6);
   });
 });
