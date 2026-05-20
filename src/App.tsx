@@ -88,6 +88,10 @@ export function App() {
       "The tracker could not process webcam frames. MediaPipe needs WebGL support in this browser; try enabling hardware acceleration or using another browser."
     );
     setLatestFeatures(null);
+    smootherRef.current.reset();
+    setAttention(null);
+    setSmootherSnapshot(null);
+    setDisplayState("green");
   }, []);
 
   useAttentionLoop({
