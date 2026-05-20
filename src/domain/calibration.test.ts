@@ -16,6 +16,12 @@ function sample(point: CalibrationPointId, offset: number): FrameFeatures {
     yaw: 0.05 + offset * 0.001,
     eyeVertical: 0.5 + offset * 0.001,
     eyeHorizontal: 0.5,
+    leftEyeVertical: 0.5 + offset * 0.001,
+    rightEyeVertical: 0.5 + offset * 0.001,
+    leftEyeHorizontal: 0.5,
+    rightEyeHorizontal: 0.5,
+    leftEyeOpenness: 0.06,
+    rightEyeOpenness: 0.06,
     faceCenterX: 0.5,
     faceCenterY: 0.45,
     faceScale: 0.62
@@ -86,6 +92,39 @@ describe("calibration", () => {
     expect(result.profile.points).toContain("keyboard");
     expect((result.profile as any).keyboardCenter.eyeVertical).toBeCloseTo(0.7065, 4);
     expect((result.profile as any).keyboardTolerance.eyeVertical).toBeGreaterThan(0);
+  });
+
+  it("reports strong keyboard separation when keyboard samples differ from screen samples", () => {
+    const calibrationSamples = {
+      ...samplesByPoint(sample),
+      keyboard: Array.from({ length: 14 }, (_, index) => ({
+        ...sample("keyboard", index),
+        eyeVertical: 0.7 + index * 0.001,
+        leftEyeVertical: 0.7 + index * 0.001,
+        rightEyeVertical: 0.7 + index * 0.001
+      }))
+    };
+
+    const result = buildCalibrationProfile(calibrationSamples);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.keyboardSeparation).toBeGreaterThan(1.35);
+    expect(result.profile.keyboardQuality).toBe("strong");
+  });
+
+  it("reports weak keyboard separation when keyboard samples match screen samples", () => {
+    const calibrationSamples = {
+      ...samplesByPoint(sample),
+      keyboard: Array.from({ length: 14 }, (_, index) => sample("keyboard", index))
+    };
+
+    const result = buildCalibrationProfile(calibrationSamples);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.keyboardSeparation).toBeLessThan(0.75);
+    expect(result.profile.keyboardQuality).toBe("weak");
   });
 
   it("uses percentile tolerance when it exceeds the feature floor", () => {

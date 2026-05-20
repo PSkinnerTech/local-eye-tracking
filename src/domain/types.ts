@@ -11,6 +11,12 @@ export type FeatureKey =
   | "yaw"
   | "eyeVertical"
   | "eyeHorizontal"
+  | "leftEyeVertical"
+  | "rightEyeVertical"
+  | "leftEyeHorizontal"
+  | "rightEyeHorizontal"
+  | "leftEyeOpenness"
+  | "rightEyeOpenness"
   | "faceCenterX"
   | "faceCenterY"
   | "faceScale";
@@ -20,6 +26,12 @@ export const FEATURE_KEYS: FeatureKey[] = [
   "yaw",
   "eyeVertical",
   "eyeHorizontal",
+  "leftEyeVertical",
+  "rightEyeVertical",
+  "leftEyeHorizontal",
+  "rightEyeHorizontal",
+  "leftEyeOpenness",
+  "rightEyeOpenness",
   "faceCenterX",
   "faceCenterY",
   "faceScale"
@@ -40,6 +52,8 @@ export type CalibrationPoint = {
   yPercent: number;
 };
 
+export type KeyboardCalibrationQuality = "weak" | "usable" | "strong";
+
 export type CalibrationProfile = {
   createdAtMs: number;
   minValidSamplesPerPoint: number;
@@ -48,6 +62,8 @@ export type CalibrationProfile = {
   tolerance: FeatureVector;
   keyboardCenter?: FeatureVector;
   keyboardTolerance?: FeatureVector;
+  keyboardSeparation?: number;
+  keyboardQuality?: KeyboardCalibrationQuality;
 };
 
 export type RawAttentionState = "looking" | "away" | "unknown" | "face-missing";
@@ -57,4 +73,9 @@ export type AttentionResult = {
   confidence: number;
   distance: number;
   trackingScore: number;
+  screenDistance?: number;
+  keyboardDistance?: number;
+  keyboardScore?: number;
+  keyboardSeparation?: number;
+  keyboardQuality?: KeyboardCalibrationQuality;
 };

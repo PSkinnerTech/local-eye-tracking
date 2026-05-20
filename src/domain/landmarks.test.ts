@@ -21,7 +21,15 @@ function landmarks(overrides: Partial<Record<number, NormalizedLandmark>> = {}) 
     386: { x: 0.61, y: 0.33, z: 0 },
     454: { x: 0.78, y: 0.5, z: 0 },
     468: { x: 0.39, y: 0.36, z: 0 },
+    469: { x: 0.405, y: 0.36, z: 0 },
+    470: { x: 0.39, y: 0.345, z: 0 },
+    471: { x: 0.375, y: 0.36, z: 0 },
+    472: { x: 0.39, y: 0.375, z: 0 },
     473: { x: 0.61, y: 0.36, z: 0 },
+    474: { x: 0.625, y: 0.36, z: 0 },
+    475: { x: 0.61, y: 0.345, z: 0 },
+    476: { x: 0.595, y: 0.36, z: 0 },
+    477: { x: 0.61, y: 0.375, z: 0 },
     ...overrides
   };
 
@@ -42,6 +50,12 @@ describe("extractFrameFeatures", () => {
     expect(features?.faceCenterX).toBeCloseTo(0.5, 2);
     expect(features?.faceScale).toBeGreaterThan(0.3);
     expect(features?.eyeVertical).toBeCloseTo(0.5, 1);
+    expect(features?.leftEyeVertical).toBeCloseTo(0.5, 1);
+    expect(features?.rightEyeVertical).toBeCloseTo(0.5, 1);
+    expect(features?.leftEyeHorizontal).toBeCloseTo(0.5, 1);
+    expect(features?.rightEyeHorizontal).toBeCloseTo(0.5, 1);
+    expect(features?.leftEyeOpenness).toBeCloseTo(0.06, 3);
+    expect(features?.rightEyeOpenness).toBeCloseTo(0.06, 3);
   });
 
   it("returns null when required landmarks are missing", () => {
@@ -63,5 +77,22 @@ describe("extractFrameFeatures", () => {
     expect(down).not.toBeNull();
     expect(down!.pitch).toBeGreaterThan(neutral!.pitch);
     expect(down!.eyeVertical).toBeGreaterThan(neutral!.eyeVertical);
+  });
+
+  it("captures eye-only downward movement without changing head pitch", () => {
+    const neutral = extractFrameFeatures(landmarks(), 1000);
+    const eyeOnlyDown = extractFrameFeatures(
+      landmarks({
+        468: { x: 0.39, y: 0.385, z: 0 },
+        473: { x: 0.61, y: 0.385, z: 0 }
+      }),
+      1016
+    );
+
+    expect(neutral).not.toBeNull();
+    expect(eyeOnlyDown).not.toBeNull();
+    expect(eyeOnlyDown!.pitch).toBeCloseTo(neutral!.pitch, 6);
+    expect(eyeOnlyDown!.leftEyeVertical).toBeGreaterThan(neutral!.leftEyeVertical);
+    expect(eyeOnlyDown!.rightEyeVertical).toBeGreaterThan(neutral!.rightEyeVertical);
   });
 });

@@ -63,6 +63,8 @@ export function extractFrameFeatures(
   const rightEyeVertical = ratio(rightIris.y, rightEyeTop.y, rightEyeBottom.y);
   const leftEyeHorizontal = ratio(leftIris.x, leftEyeOuter.x, leftEyeInner.x);
   const rightEyeHorizontal = ratio(rightIris.x, rightEyeInner.x, rightEyeOuter.x);
+  const leftEyeOpenness = Math.abs(leftEyeBottom.y - leftEyeTop.y);
+  const rightEyeOpenness = Math.abs(rightEyeBottom.y - rightEyeTop.y);
 
   return {
     timestampMs,
@@ -71,6 +73,12 @@ export function extractFrameFeatures(
     yaw: (nose.x - (leftFace.x + rightFace.x) / 2) / faceWidth,
     eyeVertical: (leftEyeVertical + rightEyeVertical) / 2,
     eyeHorizontal: (leftEyeHorizontal + rightEyeHorizontal) / 2,
+    leftEyeVertical,
+    rightEyeVertical,
+    leftEyeHorizontal,
+    rightEyeHorizontal,
+    leftEyeOpenness,
+    rightEyeOpenness,
     faceCenterX: (bounds.minX + bounds.maxX) / 2,
     faceCenterY: (bounds.minY + bounds.maxY) / 2,
     faceScale: Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY)

@@ -316,6 +316,58 @@ p {
   letter-spacing: 0;
 }
 
+.test-diagnostics {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 2;
+  width: min(300px, calc(100% - 48px));
+  padding: 14px;
+  border: 2px solid currentColor;
+  border-radius: 8px;
+  color: #17211b;
+  background: rgb(255 253 244 / 88%);
+  box-shadow: 0 14px 30px rgb(0 0 0 / 14%);
+}
+
+.test-shell--red .test-diagnostics {
+  color: #47120d;
+  background: rgb(255 247 237 / 90%);
+}
+
+.test-diagnostics-quality {
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.test-diagnostics dl {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.test-diagnostics-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.84rem;
+}
+
+.test-diagnostics-row dt {
+  color: inherit;
+  font-weight: 700;
+  opacity: 0.78;
+}
+
+.test-diagnostics-row dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+}
+
 @media (max-width: 760px) {
   .app-shell {
     padding: 22px;
@@ -362,6 +414,13 @@ p {
   .test-recalibrate {
     top: 16px;
     right: 16px;
+  }
+
+  .test-diagnostics {
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    width: auto;
   }
 }
 

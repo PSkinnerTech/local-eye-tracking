@@ -23,6 +23,7 @@ export function CalibrationScreen({
   const [activeIndex, setActiveIndex] = useState(0);
   const [remainingMs, setRemainingMs] = useState(POINT_DURATION_MS);
   const [retryPointId, setRetryPointId] = useState<CalibrationPointId | null>(null);
+  const [isWaitingForFace, setIsWaitingForFace] = useState(false);
   const activeIndexRef = useRef(0);
   const pointStartedAtRef = useRef<number | null>(null);
   const lastSampleTimestampRef = useRef<number | null>(null);
@@ -54,11 +55,30 @@ export function CalibrationScreen({
       }
 
       const activePoint = CALIBRATION_SEQUENCE[activeIndexRef.current];
-      pointStartedAtRef.current ??= timestampMs;
-
       const latest = latestFeaturesRef.current;
+
+      if (!latest?.faceDetected) {
+        setIsWaitingForFace(true);
+        pointStartedAtRef.current = null;
+        lastSampleTimestampRef.current = null;
+        samplesByPointRef.current = {
+          ...samplesByPointRef.current,
+          [activePoint.id]: []
+        };
+        setRemainingMs(POINT_DURATION_MS);
+        frameId = requestAnimationFrame(tick);
+        return;
+      }
+
+      setIsWaitingForFace(false);
+      if (pointStartedAtRef.current === null) {
+        pointStartedAtRef.current = timestampMs;
+        setRemainingMs(POINT_DURATION_MS);
+        frameId = requestAnimationFrame(tick);
+        return;
+      }
+
       if (
-        latest?.faceDetected &&
         latest.timestampMs >= pointStartedAtRef.current &&
         lastSampleTimestampRef.current !== latest.timestampMs
       ) {
@@ -168,7 +188,9 @@ export function CalibrationScreen({
       <div className="calibration-status" aria-live="polite">
         <span className="countdown">{countdownSeconds}</span>
         <span>
-          {retryPointId === activePoint.id
+          {isWaitingForFace
+            ? "Waiting for face"
+            : retryPointId === activePoint.id
             ? isKeyboardStep
               ? "Retrying keyboard sample"
               : "Retrying dot"
