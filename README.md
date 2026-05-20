@@ -1,3 +1,5 @@
+![local-eye-tracking social card](docs/assets/social-card.png)
+
 # Local Eye Tracking
 
 Local-only webcam attention tracking for typing practice.
@@ -206,4 +208,4 @@ docs/superpowers/      Design specs and implementation plans
 
 ## License
 
-MIT License. Copyright (c) 2026 PSkinnerTech.
+[MIT License](LICENSE). Copyright (c) 2026 PSkinnerTech.
