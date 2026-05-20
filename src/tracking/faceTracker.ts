@@ -24,7 +24,9 @@ export async function createFaceTracker(): Promise<FaceTracker> {
     },
     canvas,
     runningMode: "VIDEO",
-    numFaces: 1
+    numFaces: 1,
+    outputFaceBlendshapes: true,
+    outputFacialTransformationMatrixes: true
   });
 
   return {
@@ -36,7 +38,10 @@ export async function createFaceTracker(): Promise<FaceTracker> {
         return null;
       }
 
-      return extractFrameFeatures(landmarks.map(toDomainLandmark), timestampMs);
+      return extractFrameFeatures(landmarks.map(toDomainLandmark), timestampMs, {
+        blendshapes: result.faceBlendshapes?.[0],
+        facialTransformationMatrix: result.facialTransformationMatrixes?.[0]
+      });
     },
     dispose() {
       landmarker.close();
