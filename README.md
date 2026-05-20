@@ -4,6 +4,8 @@
 
 Local-only webcam attention tracking for typing practice.
 
+**Live demo:** [https://eyes-iota.vercel.app](https://eyes-iota.vercel.app)
+
 Local Eye Tracking is an experimental browser app that uses a laptop webcam to estimate whether a typing student appears to be looking at the screen or looking down/away. It uses local MediaPipe Face Landmarker features, a calibration-aware binary classifier, smoothing, diagnostics, and a local evaluation workflow.
 
 The goal is not exact gaze-coordinate prediction. The goal is lightweight binary feedback: green when the user appears to be looking at the screen, red when the user appears to be looking away, looking down at the keyboard, or missing from the webcam frame long enough to matter.
