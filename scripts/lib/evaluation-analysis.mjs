@@ -1,22 +1,49 @@
-const EVALUATION_LABELS = [
-  "screen-center",
-  "screen-bottom",
-  "keyboard",
-  "off-left",
-  "off-right",
-  "lean-left",
-  "lean-right",
-  "low-light"
-];
+export const BASELINE_TARGET_COUNT = 20;
 
-const AWAY_LABELS = new Set(["keyboard", "off-left", "off-right"]);
-const SCREEN_LABELS = new Set([
-  "screen-center",
-  "screen-bottom",
-  "lean-left",
-  "lean-right",
-  "low-light"
-]);
+export const EVALUATION_LABEL_METADATA = {
+  "screen-center": {
+    displayName: "Screen center",
+    role: "screen",
+    targetCount: BASELINE_TARGET_COUNT
+  },
+  "screen-bottom": {
+    displayName: "Screen bottom",
+    role: "screen",
+    targetCount: BASELINE_TARGET_COUNT
+  },
+  keyboard: {
+    displayName: "Keyboard",
+    role: "away",
+    targetCount: BASELINE_TARGET_COUNT
+  },
+  "off-left": {
+    displayName: "Off left",
+    role: "away",
+    targetCount: BASELINE_TARGET_COUNT
+  },
+  "off-right": {
+    displayName: "Off right",
+    role: "away",
+    targetCount: BASELINE_TARGET_COUNT
+  },
+  "lean-left": {
+    displayName: "Lean left",
+    role: "screen",
+    targetCount: BASELINE_TARGET_COUNT
+  },
+  "lean-right": {
+    displayName: "Lean right",
+    role: "screen",
+    targetCount: BASELINE_TARGET_COUNT
+  },
+  "low-light": {
+    displayName: "Low light",
+    role: "screen",
+    targetCount: BASELINE_TARGET_COUNT
+  }
+};
+
+export const EVALUATION_LABELS = Object.keys(EVALUATION_LABEL_METADATA);
 
 export function validateEvaluationPayload(payload, filePath = "payload") {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
@@ -36,21 +63,36 @@ export function validateEvaluationPayload(payload, filePath = "payload") {
 
 export function analyzeEvaluationPayloads(payloads, fileCount = payloads.length) {
   const samples = payloads.flatMap((payload) => payload.samples);
-  const awaySamples = samples.filter((sample) => AWAY_LABELS.has(sample.label));
-  const screenSamples = samples.filter((sample) => SCREEN_LABELS.has(sample.label));
+  const awaySamples = samples.filter((sample) => labelHasRole(sample.label, "away"));
+  const screenSamples = samples.filter((sample) => labelHasRole(sample.label, "screen"));
+  const falseLookingCount = countRawState(awaySamples, "looking");
+  const falseAwayCount = countRawState(screenSamples, "away");
+  const labels = Object.fromEntries(
+    EVALUATION_LABELS.map((label) => [label, analyzeLabel(samples, label)])
+  );
+  const targetSamples = EVALUATION_LABELS.reduce(
+    (total, label) => total + EVALUATION_LABEL_METADATA[label].targetCount,
+    0
+  );
+  const remainingSamples = Object.values(labels).reduce(
+    (total, label) => total + label.remainingCount,
+    0
+  );
 
   return {
     fileCount,
     totalSamples: samples.length,
-    falseLookingCount: countRawState(awaySamples, "looking"),
+    targetSamples,
+    completedLabels: Object.values(labels).filter((label) => label.isComplete).length,
+    remainingSamples,
+    isComplete: remainingSamples === 0,
+    falseLookingCount,
     falseLookingDenominator: awaySamples.length,
-    falseLookingRate: rate(countRawState(awaySamples, "looking"), awaySamples.length),
-    falseAwayCount: countRawState(screenSamples, "away"),
+    falseLookingRate: rate(falseLookingCount, awaySamples.length),
+    falseAwayCount,
     falseAwayDenominator: screenSamples.length,
-    falseAwayRate: rate(countRawState(screenSamples, "away"), screenSamples.length),
-    labels: Object.fromEntries(
-      EVALUATION_LABELS.map((label) => [label, analyzeLabel(samples, label)])
-    )
+    falseAwayRate: rate(falseAwayCount, screenSamples.length),
+    labels
   };
 }
 
@@ -58,15 +100,18 @@ export function formatEvaluationAnalysis(analysis) {
   const lines = [
     "Evaluation export analysis",
     `Files: ${analysis.fileCount}`,
-    `Total samples: ${analysis.totalSamples}`,
-    `False-looking rate: ${formatPercent(analysis.falseLookingRate)} (${analysis.falseLookingCount}/${analysis.falseLookingDenominator} away-label samples)`,
-    `False-away rate: ${formatPercent(analysis.falseAwayRate)} (${analysis.falseAwayCount}/${analysis.falseAwayDenominator} screen-label samples)`,
+    `Total samples: ${formatTargetProgress(analysis)}`,
+    `False-looking rate: ${formatPercent(analysis.falseLookingRate)} (${analysis.falseLookingCount}/${analysis.falseLookingDenominator} away-role samples)`,
+    `False-away rate: ${formatPercent(analysis.falseAwayRate)} (${analysis.falseAwayCount}/${analysis.falseAwayDenominator} screen-role samples)`,
     "",
     "Per-label rows:",
     table([
       [
         "Label",
+        "Role",
         "Count",
+        "Target",
+        "Remaining",
         "Looking",
         "Unknown",
         "Away",
@@ -78,8 +123,11 @@ export function formatEvaluationAnalysis(analysis) {
         const row = analysis.labels[label];
 
         return [
-          label,
+          row.displayName,
+          row.role,
           row.count.toString(),
+          row.targetCount.toString(),
+          row.remainingCount.toString(),
           formatPercent(row.lookingPercent),
           formatPercent(row.unknownPercent),
           formatPercent(row.awayPercent),
@@ -95,9 +143,16 @@ export function formatEvaluationAnalysis(analysis) {
 }
 
 function analyzeLabel(samples, label) {
+  const metadata = EVALUATION_LABEL_METADATA[label];
   const labelSamples = samples.filter((sample) => sample.label === label);
+  const remainingCount = Math.max(0, metadata.targetCount - labelSamples.length);
 
   return {
+    displayName: metadata.displayName,
+    role: metadata.role,
+    targetCount: metadata.targetCount,
+    remainingCount,
+    isComplete: remainingCount === 0,
     count: labelSamples.length,
     lookingPercent: statePercent(labelSamples, "looking"),
     unknownPercent: statePercent(labelSamples, "unknown"),
@@ -106,6 +161,10 @@ function analyzeLabel(samples, label) {
     medianTrackingScore: median(labelSamples.map((sample) => sample.trackingScore)),
     medianKeyboardScore: median(labelSamples.map((sample) => sample.keyboardScore))
   };
+}
+
+function labelHasRole(label, role) {
+  return EVALUATION_LABEL_METADATA[label]?.role === role;
 }
 
 function countRawState(samples, rawState) {
@@ -155,6 +214,18 @@ function formatScore(value) {
   }
 
   return value.toFixed(3);
+}
+
+function formatTargetProgress(analysis) {
+  if (typeof analysis.targetSamples !== "number") {
+    return analysis.totalSamples.toString();
+  }
+
+  if (typeof analysis.remainingSamples !== "number") {
+    return `${analysis.totalSamples}/${analysis.targetSamples} target`;
+  }
+
+  return `${analysis.totalSamples}/${analysis.targetSamples} target (${analysis.remainingSamples} remaining)`;
 }
 
 function table(rows) {
