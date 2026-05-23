@@ -118,8 +118,8 @@ export type EvaluationSummaryByLabel = {
   medianTrackingScore: number | null;
   medianSideGazeScore: number | null;
   medianKeyboardScore: number | null;
-  medianLearnedKeyboardScore: number | null;
-  medianLearnedModelSeparation: number | null;
+  medianLearnedKeyboardScore?: number | null;
+  medianLearnedModelSeparation?: number | null;
 };
 
 export type EvaluationSummary = {

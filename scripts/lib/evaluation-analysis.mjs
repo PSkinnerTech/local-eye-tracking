@@ -127,8 +127,8 @@ export function formatEvaluationAnalysis(analysis) {
         "Median tracking",
         "Median side",
         "Median keyboard",
-        "Median learned keyboard",
-        "Median learned separation"
+        "Median learned keyb.",
+        "Median learned sep."
       ],
       ...EVALUATION_LABELS.map((label) => {
         const row = analysis.labels[label];

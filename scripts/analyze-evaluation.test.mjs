@@ -134,7 +134,7 @@ describe("evaluation export analysis", () => {
     expect(output).toContain("Median tracking");
     expect(output).toContain("Median side");
     expect(output).toContain("Median keyboard");
-    expect(output).toContain("Median learned keyboard");
+    expect(output).toContain("Median learned keyb.");
     expect(output).toContain("0.880");
   });
 });

@@ -46,7 +46,8 @@ describe("TestScreen", () => {
     expect(screen.getAllByText("0.22")).toHaveLength(2);
     expect(screen.getByText("Keyboard separation")).toBeInTheDocument();
     expect(screen.getByText("1.80")).toBeInTheDocument();
-    expect(screen.getByText("Learned keyboard")).toBeInTheDocument();
+    expect(screen.getByText("Learned keyboard distance")).toBeInTheDocument();
+    expect(screen.getByText("Learned keyboard score")).toBeInTheDocument();
     expect(screen.getByText("Learned margin")).toBeInTheDocument();
     expect(screen.getByText("Learned separation")).toBeInTheDocument();
   });

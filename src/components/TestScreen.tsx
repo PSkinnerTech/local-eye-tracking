@@ -110,8 +110,8 @@ function diagnosticsFor(attention: AttentionResult | null) {
     metricRow("Keyboard score", attention.keyboardScore),
     metricRow("Keyboard separation", attention.keyboardSeparation),
     metricRow("Learned screen", attention.learnedScreenDistance),
-    metricRow("Learned keyboard", attention.learnedKeyboardDistance),
-    metricRow("Learned score", attention.learnedKeyboardScore),
+    metricRow("Learned keyboard distance", attention.learnedKeyboardDistance),
+    metricRow("Learned keyboard score", attention.learnedKeyboardScore),
     metricRow("Learned margin", attention.learnedMargin),
     metricRow("Learned separation", attention.learnedModelSeparation)
   ].filter((row): row is { label: string; value: string } => row !== null);
