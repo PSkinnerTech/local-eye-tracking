@@ -70,7 +70,7 @@ Important modules:
 
 ## How Tracking Works
 
-The tracker extracts a compact feature vector from each valid webcam frame. Features include head-pose estimates, aggregate eye movement, per-eye horizontal and vertical signals, eye openness, face center, and face scale.
+The tracker extracts a compact feature vector from each valid webcam frame. Features include head-pose estimates, aggregate eye movement, per-eye horizontal and vertical signals, eye openness, face center, and face scale. During calibration, the app also trains a small in-memory screen-vs-keyboard classifier from numeric calibration features only; webcam frames still stay in the browser and no trained model is uploaded or saved between sessions.
 
 Calibration builds a screen-looking profile from five guided screen points:
 
@@ -86,6 +86,7 @@ During testing, the classifier combines:
 
 - Screen-profile distance.
 - Keyboard projection score.
+- Learned screen-vs-keyboard classification when calibration quality is usable.
 - Keyboard calibration quality.
 - Side-gaze score.
 - Face presence.
