@@ -6,6 +6,7 @@ import {
   type FeatureVector,
   type FrameFeatures
 } from "./types";
+import { buildLearnedAttentionModel } from "./learnedClassifier";
 
 export const MIN_VALID_SAMPLES_PER_POINT = 12;
 
@@ -121,6 +122,10 @@ export function buildCalibrationProfile(
     keyboardSeparation === undefined
       ? undefined
       : keyboardQualityForSeparation(keyboardSeparation);
+  const learnedModel =
+    keyboardSamples.length > 0
+      ? buildLearnedAttentionModel(samples, keyboardSamples) ?? undefined
+      : undefined;
 
   return {
     ok: true,
@@ -133,7 +138,8 @@ export function buildCalibrationProfile(
       keyboardCenter,
       keyboardTolerance,
       keyboardSeparation,
-      keyboardQuality
+      keyboardQuality,
+      ...(learnedModel ? { learnedModel } : {})
     }
   };
 }

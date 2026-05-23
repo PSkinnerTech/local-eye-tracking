@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { classifyAttention } from "./classifier";
+import { AWAY_DISTANCE_THRESHOLD, classifyAttention } from "./classifier";
+import { buildLearnedAttentionModel } from "./learnedClassifier";
 import type { CalibrationProfile, FrameFeatures } from "./types";
 
 const PITCH_WEIGHT = 1.35;
@@ -124,6 +125,48 @@ function frame(overrides: Partial<FrameFeatures> = {}): FrameFeatures {
     faceCenterY: 0.45,
     faceScale: 0.62,
     ...overrides
+  };
+}
+
+function learnedScreenSamples(): FrameFeatures[] {
+  return Array.from({ length: 16 }, (_, index) =>
+    frame({
+      timestampMs: 3_000 + index,
+      eyeVertical: 0.5 + index * 0.0005,
+      leftEyeVertical: 0.5 + index * 0.0005,
+      rightEyeVertical: 0.5 + index * 0.0005,
+      faceCenterX: 0.45 + index * 0.01,
+      faceScale: 0.58 + index * 0.01
+    })
+  );
+}
+
+function learnedKeyboardSamples(): FrameFeatures[] {
+  return Array.from({ length: 16 }, (_, index) =>
+    frame({
+      timestampMs: 4_000 + index,
+      eyeVertical: 0.68 + index * 0.0005,
+      leftEyeVertical: 0.68 + index * 0.0005,
+      rightEyeVertical: 0.68 + index * 0.0005,
+      faceCenterX: 0.45 + index * 0.01,
+      faceScale: 0.58 + index * 0.01
+    })
+  );
+}
+
+function learnedProfile(): CalibrationProfile {
+  const learnedModel = buildLearnedAttentionModel(
+    learnedScreenSamples(),
+    learnedKeyboardSamples()
+  );
+
+  if (!learnedModel) {
+    throw new Error("Expected learned model");
+  }
+
+  return {
+    ...profile,
+    learnedModel
   };
 }
 
@@ -364,5 +407,112 @@ describe("classifyAttention", () => {
       distance: Number.POSITIVE_INFINITY,
       trackingScore: 0
     });
+  });
+
+  it("uses the learned model to classify keyboard-like eye-only glances as away", () => {
+    const result = classifyAttention(
+      frame({
+        pitch: profile.center.pitch,
+        yaw: profile.center.yaw,
+        eyeVertical: 0.675,
+        leftEyeVertical: 0.675,
+        rightEyeVertical: 0.675,
+        faceCenterX: 0.92,
+        faceScale: 0.9
+      }),
+      learnedProfile()
+    );
+
+    expect(result.rawState).toBe("away");
+    expect(result.trackingScore).toBe(0);
+    expect(result.learnedKeyboardScore).toBeGreaterThan(0.6);
+    expect(result.learnedMargin).toBeGreaterThan(0.15);
+    expect(result.learnedModelSeparation).toBeGreaterThan(0.75);
+  });
+
+  it("uses the learned model to keep screen-like frames looking despite face placement changes", () => {
+    const result = classifyAttention(
+      frame({
+        eyeVertical: 0.51,
+        leftEyeVertical: 0.51,
+        rightEyeVertical: 0.51,
+        faceCenterX: 0.92,
+        faceCenterY: 0.88,
+        faceScale: 0.9
+      }),
+      learnedProfile()
+    );
+
+    expect(result.rawState).toBe("looking");
+    expect(result.learnedKeyboardScore).toBeLessThan(0.4);
+    expect(result.learnedMargin).toBeLessThan(-0.15);
+  });
+
+  it("does not let learned screen force looking for extreme legacy outliers", () => {
+    const result = classifyAttention(
+      frame({
+        eyeVertical: 0.51,
+        leftEyeVertical: 0.51,
+        rightEyeVertical: 0.51,
+        faceCenterX: 0.92,
+        faceCenterY: 1.02,
+        faceScale: 0.9
+      }),
+      learnedProfile()
+    );
+
+    expect(result.distance).toBeGreaterThan(AWAY_DISTANCE_THRESHOLD);
+    expect(result.rawState).toBe("unknown");
+    expect(result.learnedKeyboardScore).toBeLessThan(0.4);
+  });
+
+  it("uses the learned model to mark screen-vs-keyboard ambiguous frames unknown", () => {
+    const result = classifyAttention(
+      frame({
+        eyeVertical: 0.59,
+        leftEyeVertical: 0.59,
+        rightEyeVertical: 0.59
+      }),
+      learnedProfile()
+    );
+
+    expect(result.rawState).toBe("unknown");
+    expect(result.learnedKeyboardScore).toBeGreaterThan(0.4);
+    expect(result.learnedKeyboardScore).toBeLessThan(0.6);
+  });
+
+  it("lets legacy away classify learned-unknown frames beyond the away threshold", () => {
+    const result = classifyAttention(
+      frame({
+        pitch: pitchForDistance(1.66),
+        eyeVertical: 0.59,
+        leftEyeVertical: 0.59,
+        rightEyeVertical: 0.59
+      }),
+      learnedProfile()
+    );
+
+    expect(result.distance).toBeGreaterThan(AWAY_DISTANCE_THRESHOLD);
+    expect(result.rawState).toBe("away");
+    expect(result.learnedKeyboardScore).toBeGreaterThan(0.4);
+    expect(result.learnedKeyboardScore).toBeLessThan(0.6);
+  });
+
+  it("falls back to the existing classifier when the learned model is weak", () => {
+    const weakLearnedModel = buildLearnedAttentionModel(
+      learnedScreenSamples(),
+      learnedScreenSamples()
+    );
+
+    const result = classifyAttention(
+      frame({ pitch: pitchForDistance(1.66) }),
+      {
+        ...profile,
+        learnedModel: weakLearnedModel ?? undefined
+      }
+    );
+
+    expect(result.rawState).toBe("away");
+    expect(result.learnedKeyboardScore).toBeUndefined();
   });
 });

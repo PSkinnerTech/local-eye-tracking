@@ -56,6 +56,19 @@ export type FrameFeatures = Record<FeatureKey, number> & {
 
 export type FeatureVector = Record<FeatureKey, number>;
 
+export type LearnedAttentionClass = "screen" | "keyboard";
+
+export type LearnedAttentionModel = {
+  version: 1;
+  featureKeys: FeatureKey[];
+  screenCenter: FeatureVector;
+  keyboardCenter: FeatureVector;
+  scale: FeatureVector;
+  screenRadius: number;
+  keyboardRadius: number;
+  keyboardSeparation: number;
+};
+
 export type CalibrationPoint = {
   id: CalibrationPointId;
   label: string;
@@ -75,6 +88,7 @@ export type CalibrationProfile = {
   keyboardTolerance?: FeatureVector;
   keyboardSeparation?: number;
   keyboardQuality?: KeyboardCalibrationQuality;
+  learnedModel?: LearnedAttentionModel;
 };
 
 export type RawAttentionState = "looking" | "away" | "unknown" | "face-missing";
@@ -91,4 +105,9 @@ export type AttentionResult = {
   keyboardScore?: number;
   keyboardSeparation?: number;
   keyboardQuality?: KeyboardCalibrationQuality;
+  learnedScreenDistance?: number;
+  learnedKeyboardDistance?: number;
+  learnedKeyboardScore?: number;
+  learnedMargin?: number;
+  learnedModelSeparation?: number;
 };

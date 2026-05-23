@@ -183,4 +183,58 @@ describe("calibration", () => {
       pointId: "top-left"
     });
   });
+
+  it("builds a learned model when keyboard calibration samples are available", () => {
+    const calibrationSamples = {
+      ...samplesByPoint(sample),
+      keyboard: Array.from({ length: 14 }, (_, index) => ({
+        ...sample("keyboard", index),
+        pitch: 0.1 + index * 0.001,
+        yaw: 0.3 + index * 0.001,
+        eyeVertical: 0.7 + index * 0.001,
+        eyeHorizontal: 0.7,
+        leftEyeVertical: 0.7 + index * 0.001,
+        rightEyeVertical: 0.7 + index * 0.001,
+        leftEyeHorizontal: 0.7,
+        rightEyeHorizontal: 0.7,
+        leftEyeOpenness: 0.12,
+        rightEyeOpenness: 0.12,
+        faceCenterX: 0.8,
+        faceScale: 0.9
+      }))
+    };
+
+    const result = buildCalibrationProfile(calibrationSamples);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.learnedModel).toBeDefined();
+    expect(result.profile.learnedModel?.keyboardSeparation).toBeGreaterThan(0.75);
+    expect(result.profile.learnedModel?.featureKeys).not.toContain("faceCenterX");
+    expect(result.profile.learnedModel?.featureKeys).not.toContain("faceScale");
+  });
+
+  it("omits the learned model when keyboard calibration is not part of the profile", () => {
+    const result = buildCalibrationProfile(samplesByPoint(sample));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.keyboardCenter).toBeUndefined();
+    expect(result.profile.learnedModel).toBeUndefined();
+  });
+
+  it("keeps a weak learned model on the profile for diagnostics", () => {
+    const calibrationSamples = {
+      ...samplesByPoint(sample),
+      keyboard: Array.from({ length: 14 }, (_, index) => sample("keyboard", index))
+    };
+
+    const result = buildCalibrationProfile(calibrationSamples);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.keyboardQuality).toBe("weak");
+    expect(result.profile.learnedModel).toBeDefined();
+    expect(result.profile.learnedModel?.keyboardSeparation).toBeLessThan(0.75);
+  });
 });

@@ -14,7 +14,12 @@ const attention: AttentionResult = {
   keyboardDistance: 1.4,
   keyboardScore: 0.22,
   keyboardSeparation: 1.8,
-  keyboardQuality: "strong"
+  keyboardQuality: "strong",
+  learnedScreenDistance: 0.35,
+  learnedKeyboardDistance: 1.45,
+  learnedKeyboardScore: 0.22,
+  learnedMargin: -1.1,
+  learnedModelSeparation: 1.9
 };
 
 describe("TestScreen", () => {
@@ -38,9 +43,13 @@ describe("TestScreen", () => {
     expect(screen.getByText("Side gaze")).toBeInTheDocument();
     expect(screen.getByText("1.45 right")).toBeInTheDocument();
     expect(screen.getByText("Keyboard score")).toBeInTheDocument();
-    expect(screen.getByText("0.22")).toBeInTheDocument();
+    expect(screen.getAllByText("0.22")).toHaveLength(2);
     expect(screen.getByText("Keyboard separation")).toBeInTheDocument();
     expect(screen.getByText("1.80")).toBeInTheDocument();
+    expect(screen.getByText("Learned keyboard distance")).toBeInTheDocument();
+    expect(screen.getByText("Learned keyboard score")).toBeInTheDocument();
+    expect(screen.getByText("Learned margin")).toBeInTheDocument();
+    expect(screen.getByText("Learned separation")).toBeInTheDocument();
   });
 
   it("renders evaluation controls when provided", () => {
@@ -114,6 +123,8 @@ function emptyEvaluationLabel() {
     faceMissingPercent: 0,
     medianTrackingScore: null,
     medianSideGazeScore: null,
-    medianKeyboardScore: null
+    medianKeyboardScore: null,
+    medianLearnedKeyboardScore: null,
+    medianLearnedModelSeparation: null
   };
 }

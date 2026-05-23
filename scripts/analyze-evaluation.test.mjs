@@ -7,7 +7,7 @@ import {
   validateEvaluationPayload
 } from "./lib/evaluation-analysis.mjs";
 
-function sample(label, rawState, trackingScore, keyboardScore, sideGazeScore) {
+function sample(label, rawState, trackingScore, keyboardScore, sideGazeScore, learnedKeyboardScore) {
   return {
     id: `${label}-${rawState}-${trackingScore}`,
     timestampMs: 1_000,
@@ -17,7 +17,8 @@ function sample(label, rawState, trackingScore, keyboardScore, sideGazeScore) {
     awayDurationMs: rawState === "looking" ? 0 : 900,
     trackingScore,
     ...(keyboardScore === undefined ? {} : { keyboardScore }),
-    ...(sideGazeScore === undefined ? {} : { sideGazeScore })
+    ...(sideGazeScore === undefined ? {} : { sideGazeScore }),
+    ...(learnedKeyboardScore === undefined ? {} : { learnedKeyboardScore })
   };
 }
 
@@ -103,8 +104,8 @@ describe("evaluation export analysis", () => {
         {
           version: 1,
           samples: [
-            sample("keyboard", "looking", 0.91, 0.82),
-            sample("screen-center", "away", 0.31, 0.2)
+            sample("keyboard", "looking", 0.91, 0.82, undefined, 0.88),
+            sample("screen-center", "away", 0.31, 0.2, undefined, 0.3)
           ]
         },
         {
@@ -133,5 +134,7 @@ describe("evaluation export analysis", () => {
     expect(output).toContain("Median tracking");
     expect(output).toContain("Median side");
     expect(output).toContain("Median keyboard");
+    expect(output).toContain("Median learned keyb.");
+    expect(output).toContain("0.880");
   });
 });
