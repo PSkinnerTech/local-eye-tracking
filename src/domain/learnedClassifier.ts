@@ -23,6 +23,8 @@ export const LEARNED_MIN_SEPARATION = 0.75;
 const LEARNED_MARGIN_THRESHOLD = 0.15;
 const KEYBOARD_SCORE_THRESHOLD = 0.6;
 const SCREEN_SCORE_THRESHOLD = 0.4;
+// Keep robust scales slightly roomy without washing out eye-position separation.
+const ROBUST_SCALE_PADDING = 1.2;
 
 const LEARNED_TOLERANCE_FLOORS: FeatureVector = {
   pitch: 0.04,
@@ -64,6 +66,11 @@ export function buildLearnedAttentionModel(
   const keyboardCenter = vectorFromSamples(validKeyboardSamples);
   const scale = scaleFromSamples([...validScreenSamples, ...validKeyboardSamples]);
   const keyboardSeparation = distanceBetween(screenCenter, keyboardCenter, scale);
+
+  if (keyboardSeparation < LEARNED_MIN_SEPARATION) {
+    return null;
+  }
+
   const screenRadius = median(
     validScreenSamples.map((sample) => distanceBetween(sample, screenCenter, scale))
   );
@@ -144,15 +151,22 @@ function isUsableModel(
       model.featureKeys.length > 0 &&
       Number.isFinite(model.keyboardSeparation) &&
       model.keyboardSeparation >= LEARNED_MIN_SEPARATION &&
+      isFiniteFeatureVector(model.screenCenter, model.featureKeys) &&
+      isFiniteFeatureVector(model.keyboardCenter, model.featureKeys) &&
+      isFiniteFeatureVector(model.scale, model.featureKeys) &&
       model.featureKeys.every(
         (key) =>
-          FEATURE_KEYS.includes(key) &&
-          Number.isFinite(model.screenCenter[key]) &&
-          Number.isFinite(model.keyboardCenter[key]) &&
-          Number.isFinite(model.scale[key]) &&
+          (LEARNED_FEATURE_KEYS as readonly FeatureKey[]).includes(key) &&
           model.scale[key] > 0
       )
   );
+}
+
+function isFiniteFeatureVector(
+  vector: FeatureVector | undefined,
+  featureKeys: readonly FeatureKey[]
+): vector is FeatureVector {
+  return Boolean(vector && featureKeys.every((key) => Number.isFinite(vector[key])));
 }
 
 function validSamples(samples: FrameFeatures[]): FrameFeatures[] {
@@ -180,7 +194,7 @@ function scaleFromSamples(samples: FrameFeatures[]): FeatureVector {
   return Object.fromEntries(
     FEATURE_KEYS.map((key) => {
       const deviations = samples.map((sample) => Math.abs(sample[key] - center[key]));
-      const robustScale = percentileValue(deviations, 0.95) * 1.2;
+      const robustScale = percentileValue(deviations, 0.95) * ROBUST_SCALE_PADDING;
 
       return [key, Math.max(robustScale, LEARNED_TOLERANCE_FLOORS[key])];
     })

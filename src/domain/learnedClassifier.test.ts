@@ -4,7 +4,7 @@ import {
   buildLearnedAttentionModel,
   classifyWithLearnedModel
 } from "./learnedClassifier";
-import type { FrameFeatures } from "./types";
+import type { FrameFeatures, LearnedAttentionModel } from "./types";
 
 function frame(overrides: Partial<FrameFeatures> = {}): FrameFeatures {
   return {
@@ -73,6 +73,27 @@ describe("learnedClassifier", () => {
     expect(model?.keyboardRadius).toBeGreaterThanOrEqual(0);
   });
 
+  it("returns null when screen calibration samples are empty", () => {
+    expect(buildLearnedAttentionModel([], keyboardSamples())).toBeNull();
+  });
+
+  it("returns null when all calibration samples are invalid or face-missing", () => {
+    const invalidSamples = screenSamples().map((sample, index) =>
+      frame({
+        ...sample,
+        faceDetected: false,
+        eyeVertical: index % 2 === 0 ? Number.NaN : sample.eyeVertical
+      })
+    );
+
+    expect(buildLearnedAttentionModel(invalidSamples, keyboardSamples())).toBeNull();
+    expect(buildLearnedAttentionModel(screenSamples(), invalidSamples)).toBeNull();
+  });
+
+  it("returns null when learned calibration separation is weak", () => {
+    expect(buildLearnedAttentionModel(screenSamples(), screenSamples())).toBeNull();
+  });
+
   it("classifies keyboard-like eye-only glances as keyboard", () => {
     const model = buildLearnedAttentionModel(screenSamples(), keyboardSamples());
     expect(model).not.toBeNull();
@@ -131,14 +152,32 @@ describe("learnedClassifier", () => {
     expect(Math.abs(decision?.margin ?? 99)).toBeLessThan(0.2);
   });
 
-  it("returns null when model separation is weak or required values are invalid", () => {
-    const weakModel = buildLearnedAttentionModel(screenSamples(), screenSamples());
-    expect(weakModel).not.toBeNull();
-
-    expect(classifyWithLearnedModel(frame(), weakModel!)).toBeNull();
-
+  it("returns null when required frame values are invalid", () => {
     const strongModel = buildLearnedAttentionModel(screenSamples(), keyboardSamples());
     expect(strongModel).not.toBeNull();
     expect(classifyWithLearnedModel(frame({ eyeVertical: Number.NaN }), strongModel!)).toBeNull();
+  });
+
+  it("returns null for malformed runtime models without throwing", () => {
+    const malformedModel = {
+      version: 1,
+      featureKeys: [...LEARNED_FEATURE_KEYS],
+      keyboardSeparation: 2
+    } as LearnedAttentionModel;
+
+    expect(() => classifyWithLearnedModel(frame(), malformedModel)).not.toThrow();
+    expect(classifyWithLearnedModel(frame(), malformedModel)).toBeNull();
+  });
+
+  it("rejects models that include face placement feature keys", () => {
+    const model = buildLearnedAttentionModel(screenSamples(), keyboardSamples());
+    expect(model).not.toBeNull();
+
+    const facePlacementModel = {
+      ...model!,
+      featureKeys: [...model!.featureKeys, "faceCenterX"]
+    } as LearnedAttentionModel;
+
+    expect(classifyWithLearnedModel(frame(), facePlacementModel)).toBeNull();
   });
 });
