@@ -56,6 +56,19 @@ export type FrameFeatures = Record<FeatureKey, number> & {
 
 export type FeatureVector = Record<FeatureKey, number>;
 
+export type LearnedAttentionClass = "screen" | "keyboard";
+
+export type LearnedAttentionModel = {
+  version: 1;
+  featureKeys: FeatureKey[];
+  screenCenter: FeatureVector;
+  keyboardCenter: FeatureVector;
+  scale: FeatureVector;
+  screenRadius: number;
+  keyboardRadius: number;
+  keyboardSeparation: number;
+};
+
 export type CalibrationPoint = {
   id: CalibrationPointId;
   label: string;
