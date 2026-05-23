@@ -5,6 +5,7 @@ import {
   type FeatureKey,
   type FrameFeatures
 } from "./types";
+import { classifyWithLearnedModel } from "./learnedClassifier";
 
 export const LOOKING_DISTANCE_THRESHOLD = 1;
 export const AWAY_DISTANCE_THRESHOLD = 1.65;
@@ -67,7 +68,85 @@ export function classifyAttention(
   const distance = weightedDistance(features, profile.center, profile.tolerance);
   const keyboard = keyboardDiagnostics(features, profile);
   const sideGaze = sideGazeDiagnostics(features, profile);
+  const learned = learnedDiagnostics(features, profile);
   const trackingScore = trackingScoreForDistance(distance);
+
+  if (
+    sideGaze.sideGazeScore >= SIDE_GAZE_AWAY_THRESHOLD &&
+    sideGaze.sideGazeScore >= distance * SIDE_GAZE_DOMINANCE_RATIO &&
+    (distance <= LOOKING_DISTANCE_THRESHOLD + DISTANCE_EPSILON ||
+      sideGaze.sideGazeScore >= SIDE_GAZE_STRONG_AWAY_THRESHOLD)
+  ) {
+    return {
+      rawState: "away",
+      confidence: clamp01((sideGaze.sideGazeScore - 0.85) / 1.1),
+      distance,
+      trackingScore: 0,
+      screenDistance: distance,
+      ...sideGaze,
+      ...keyboard,
+      ...(learned
+        ? {
+            learnedScreenDistance: learned.learnedScreenDistance,
+            learnedKeyboardDistance: learned.learnedKeyboardDistance,
+            learnedKeyboardScore: learned.learnedKeyboardScore,
+            learnedMargin: learned.learnedMargin,
+            learnedModelSeparation: learned.learnedModelSeparation
+          }
+        : {})
+    };
+  }
+
+  if (learned?.decision.state === "keyboard") {
+    return {
+      rawState: "away",
+      confidence: clamp01(learned.learnedKeyboardScore),
+      distance,
+      trackingScore: 0,
+      screenDistance: distance,
+      ...sideGaze,
+      ...keyboard,
+      learnedScreenDistance: learned.learnedScreenDistance,
+      learnedKeyboardDistance: learned.learnedKeyboardDistance,
+      learnedKeyboardScore: learned.learnedKeyboardScore,
+      learnedMargin: learned.learnedMargin,
+      learnedModelSeparation: learned.learnedModelSeparation
+    };
+  }
+
+  if (learned?.decision.state === "screen") {
+    return {
+      rawState: "looking",
+      confidence: clamp01(1 - learned.learnedKeyboardScore),
+      distance,
+      trackingScore,
+      screenDistance: distance,
+      ...sideGaze,
+      ...keyboard,
+      learnedScreenDistance: learned.learnedScreenDistance,
+      learnedKeyboardDistance: learned.learnedKeyboardDistance,
+      learnedKeyboardScore: learned.learnedKeyboardScore,
+      learnedMargin: learned.learnedMargin,
+      learnedModelSeparation: learned.learnedModelSeparation
+    };
+  }
+
+  if (learned?.decision.state === "unknown") {
+    return {
+      rawState: "unknown",
+      confidence: clamp01(1 - Math.abs(learned.learnedKeyboardScore - 0.5) * 2),
+      distance,
+      trackingScore,
+      screenDistance: distance,
+      ...sideGaze,
+      ...keyboard,
+      learnedScreenDistance: learned.learnedScreenDistance,
+      learnedKeyboardDistance: learned.learnedKeyboardDistance,
+      learnedKeyboardScore: learned.learnedKeyboardScore,
+      learnedMargin: learned.learnedMargin,
+      learnedModelSeparation: learned.learnedModelSeparation
+    };
+  }
 
   if (
     keyboard &&
@@ -83,24 +162,16 @@ export function classifyAttention(
       trackingScore: 0,
       screenDistance: distance,
       ...sideGaze,
-      ...keyboard
-    };
-  }
-
-  if (
-    sideGaze.sideGazeScore >= SIDE_GAZE_AWAY_THRESHOLD &&
-    sideGaze.sideGazeScore >= distance * SIDE_GAZE_DOMINANCE_RATIO &&
-    (distance <= LOOKING_DISTANCE_THRESHOLD + DISTANCE_EPSILON ||
-      sideGaze.sideGazeScore >= SIDE_GAZE_STRONG_AWAY_THRESHOLD)
-  ) {
-    return {
-      rawState: "away",
-      confidence: clamp01((sideGaze.sideGazeScore - 0.85) / 1.1),
-      distance,
-      trackingScore: 0,
-      screenDistance: distance,
-      ...sideGaze,
-      ...keyboard
+      ...keyboard,
+      ...(learned
+        ? {
+            learnedScreenDistance: learned.learnedScreenDistance,
+            learnedKeyboardDistance: learned.learnedKeyboardDistance,
+            learnedKeyboardScore: learned.learnedKeyboardScore,
+            learnedMargin: learned.learnedMargin,
+            learnedModelSeparation: learned.learnedModelSeparation
+          }
+        : {})
     };
   }
 
@@ -112,7 +183,16 @@ export function classifyAttention(
       trackingScore,
       screenDistance: distance,
       ...sideGaze,
-      ...keyboard
+      ...keyboard,
+      ...(learned
+        ? {
+            learnedScreenDistance: learned.learnedScreenDistance,
+            learnedKeyboardDistance: learned.learnedKeyboardDistance,
+            learnedKeyboardScore: learned.learnedKeyboardScore,
+            learnedMargin: learned.learnedMargin,
+            learnedModelSeparation: learned.learnedModelSeparation
+          }
+        : {})
     };
   }
 
@@ -124,7 +204,16 @@ export function classifyAttention(
       trackingScore,
       screenDistance: distance,
       ...sideGaze,
-      ...keyboard
+      ...keyboard,
+      ...(learned
+        ? {
+            learnedScreenDistance: learned.learnedScreenDistance,
+            learnedKeyboardDistance: learned.learnedKeyboardDistance,
+            learnedKeyboardScore: learned.learnedKeyboardScore,
+            learnedMargin: learned.learnedMargin,
+            learnedModelSeparation: learned.learnedModelSeparation
+          }
+        : {})
     };
   }
 
@@ -135,7 +224,16 @@ export function classifyAttention(
     trackingScore,
     screenDistance: distance,
     ...sideGaze,
-    ...keyboard
+    ...keyboard,
+    ...(learned
+      ? {
+          learnedScreenDistance: learned.learnedScreenDistance,
+          learnedKeyboardDistance: learned.learnedKeyboardDistance,
+          learnedKeyboardScore: learned.learnedKeyboardScore,
+          learnedMargin: learned.learnedMargin,
+          learnedModelSeparation: learned.learnedModelSeparation
+        }
+      : {})
   };
 }
 
@@ -198,6 +296,23 @@ function keyboardDiagnostics(
     keyboardScore,
     keyboardSeparation,
     keyboardQuality
+  };
+}
+
+function learnedDiagnostics(features: FrameFeatures, profile: CalibrationProfile) {
+  const decision = classifyWithLearnedModel(features, profile.learnedModel);
+
+  if (!decision) {
+    return null;
+  }
+
+  return {
+    decision,
+    learnedScreenDistance: decision.screenDistance,
+    learnedKeyboardDistance: decision.keyboardDistance,
+    learnedKeyboardScore: decision.keyboardScore,
+    learnedMargin: decision.margin,
+    learnedModelSeparation: decision.modelSeparation
   };
 }
 

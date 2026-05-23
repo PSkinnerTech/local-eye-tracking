@@ -105,4 +105,9 @@ export type AttentionResult = {
   keyboardScore?: number;
   keyboardSeparation?: number;
   keyboardQuality?: KeyboardCalibrationQuality;
+  learnedScreenDistance?: number;
+  learnedKeyboardDistance?: number;
+  learnedKeyboardScore?: number;
+  learnedMargin?: number;
+  learnedModelSeparation?: number;
 };
