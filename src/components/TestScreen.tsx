@@ -108,7 +108,12 @@ function diagnosticsFor(attention: AttentionResult | null) {
     sideGazeRow(attention),
     metricRow("Keyboard distance", attention.keyboardDistance),
     metricRow("Keyboard score", attention.keyboardScore),
-    metricRow("Keyboard separation", attention.keyboardSeparation)
+    metricRow("Keyboard separation", attention.keyboardSeparation),
+    metricRow("Learned screen", attention.learnedScreenDistance),
+    metricRow("Learned keyboard", attention.learnedKeyboardDistance),
+    metricRow("Learned score", attention.learnedKeyboardScore),
+    metricRow("Learned margin", attention.learnedMargin),
+    metricRow("Learned separation", attention.learnedModelSeparation)
   ].filter((row): row is { label: string; value: string } => row !== null);
 
   if (rows.length === 0 && !attention.keyboardQuality) {

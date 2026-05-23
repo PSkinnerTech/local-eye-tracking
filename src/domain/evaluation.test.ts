@@ -40,7 +40,12 @@ function attention(rawState: AttentionResult["rawState"], trackingScore: number)
     keyboardDistance: 1.3,
     keyboardScore: 0.2,
     keyboardSeparation: 1.8,
-    keyboardQuality: "strong"
+    keyboardQuality: "strong",
+    learnedScreenDistance: 0.35,
+    learnedKeyboardDistance: 1.4,
+    learnedKeyboardScore: 0.2,
+    learnedMargin: -1.05,
+    learnedModelSeparation: 1.9
   };
 }
 
@@ -110,6 +115,8 @@ describe("evaluation", () => {
     expect(samples[0].rawState).toBe("looking");
     expect(samples[0].displayState).toBe("green");
     expect(samples[0].trackingScore).toBe(0.95);
+    expect(samples[0].learnedKeyboardScore).toBe(0.2);
+    expect(samples[0].learnedModelSeparation).toBe(1.9);
   });
 
   it("does not add samples after a label reaches its baseline target", () => {
@@ -202,6 +209,35 @@ describe("evaluation", () => {
       isComplete: true
     });
     expect(summary.labels["off-left"].remainingCount).toBe(0);
+  });
+
+  it("summarizes learned keyboard score medians by label", () => {
+    const samples = [
+      ...addEvaluationSample([], {
+        label: "keyboard",
+        timestampMs: 100,
+        features,
+        attention: {
+          ...attention("away", 0.25),
+          learnedKeyboardScore: 0.9
+        },
+        smootherSnapshot: { displayState: "red", rawState: "away", awayDurationMs: 900 }
+      }),
+      ...addEvaluationSample([], {
+        label: "keyboard",
+        timestampMs: 120,
+        features,
+        attention: {
+          ...attention("away", 0.25),
+          learnedKeyboardScore: 0.7
+        },
+        smootherSnapshot: { displayState: "red", rawState: "away", awayDurationMs: 900 }
+      })
+    ];
+
+    const summary = summarizeEvaluation(samples);
+
+    expect(summary.labels.keyboard.medianLearnedKeyboardScore).toBe(0.8);
   });
 
   it("marks the overall summary complete when every label reaches its target", () => {

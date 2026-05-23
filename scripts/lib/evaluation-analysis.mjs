@@ -126,7 +126,9 @@ export function formatEvaluationAnalysis(analysis) {
         "Face missing",
         "Median tracking",
         "Median side",
-        "Median keyboard"
+        "Median keyboard",
+        "Median learned keyboard",
+        "Median learned separation"
       ],
       ...EVALUATION_LABELS.map((label) => {
         const row = analysis.labels[label];
@@ -144,7 +146,9 @@ export function formatEvaluationAnalysis(analysis) {
           formatPercent(row.faceMissingPercent),
           formatScore(row.medianTrackingScore),
           formatScore(row.medianSideGazeScore),
-          formatScore(row.medianKeyboardScore)
+          formatScore(row.medianKeyboardScore),
+          formatScore(row.medianLearnedKeyboardScore),
+          formatScore(row.medianLearnedModelSeparation)
         ];
       })
     ])
@@ -173,7 +177,11 @@ function analyzeLabel(samples, label) {
     faceMissingPercent: statePercent(labelSamples, "face-missing"),
     medianTrackingScore: median(labelSamples.map((sample) => sample.trackingScore)),
     medianSideGazeScore: median(labelSamples.map((sample) => sample.sideGazeScore)),
-    medianKeyboardScore: median(labelSamples.map((sample) => sample.keyboardScore))
+    medianKeyboardScore: median(labelSamples.map((sample) => sample.keyboardScore)),
+    medianLearnedKeyboardScore: median(labelSamples.map((sample) => sample.learnedKeyboardScore)),
+    medianLearnedModelSeparation: median(
+      labelSamples.map((sample) => sample.learnedModelSeparation)
+    )
   };
 }
 

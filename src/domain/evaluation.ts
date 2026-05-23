@@ -97,6 +97,11 @@ export type EvaluationSample = {
   keyboardScore?: number;
   keyboardSeparation?: number;
   keyboardQuality?: KeyboardCalibrationQuality;
+  learnedScreenDistance?: number;
+  learnedKeyboardDistance?: number;
+  learnedKeyboardScore?: number;
+  learnedMargin?: number;
+  learnedModelSeparation?: number;
 };
 
 export type EvaluationSummaryByLabel = {
@@ -113,6 +118,8 @@ export type EvaluationSummaryByLabel = {
   medianTrackingScore: number | null;
   medianSideGazeScore: number | null;
   medianKeyboardScore: number | null;
+  medianLearnedKeyboardScore: number | null;
+  medianLearnedModelSeparation: number | null;
 };
 
 export type EvaluationSummary = {
@@ -172,7 +179,12 @@ export function addEvaluationSample(
       keyboardDistance: input.attention.keyboardDistance,
       keyboardScore: input.attention.keyboardScore,
       keyboardSeparation: input.attention.keyboardSeparation,
-      keyboardQuality: input.attention.keyboardQuality
+      keyboardQuality: input.attention.keyboardQuality,
+      learnedScreenDistance: input.attention.learnedScreenDistance,
+      learnedKeyboardDistance: input.attention.learnedKeyboardDistance,
+      learnedKeyboardScore: input.attention.learnedKeyboardScore,
+      learnedMargin: input.attention.learnedMargin,
+      learnedModelSeparation: input.attention.learnedModelSeparation
     }
   ];
 }
@@ -280,6 +292,12 @@ function summarizeLabel(
       labelSamples
         .map((sample) => sample.keyboardScore)
         .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+    ),
+    medianLearnedKeyboardScore: median(
+      labelSamples.map((sample) => sample.learnedKeyboardScore)
+    ),
+    medianLearnedModelSeparation: median(
+      labelSamples.map((sample) => sample.learnedModelSeparation)
     )
   };
 }
@@ -300,7 +318,7 @@ function rate(numerator: number, denominator: number): number | null {
   return numerator / denominator;
 }
 
-function median(values: number[]): number | null {
+function median(values: Array<number | undefined>): number | null {
   const finite = values.filter(Number.isFinite).sort((left, right) => left - right);
 
   if (finite.length === 0) {
