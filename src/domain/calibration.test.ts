@@ -189,9 +189,16 @@ describe("calibration", () => {
       ...samplesByPoint(sample),
       keyboard: Array.from({ length: 14 }, (_, index) => ({
         ...sample("keyboard", index),
+        pitch: 0.1 + index * 0.001,
+        yaw: 0.3 + index * 0.001,
         eyeVertical: 0.7 + index * 0.001,
+        eyeHorizontal: 0.7,
         leftEyeVertical: 0.7 + index * 0.001,
         rightEyeVertical: 0.7 + index * 0.001,
+        leftEyeHorizontal: 0.7,
+        rightEyeHorizontal: 0.7,
+        leftEyeOpenness: 0.12,
+        rightEyeOpenness: 0.12,
         faceCenterX: 0.8,
         faceScale: 0.9
       }))

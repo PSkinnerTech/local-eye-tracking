@@ -124,12 +124,7 @@ export function buildCalibrationProfile(
       : keyboardQualityForSeparation(keyboardSeparation);
   const learnedModel =
     keyboardSamples.length > 0
-      ? buildLearnedAttentionModel(samples, keyboardSamples) ??
-        buildLearnedAttentionModel(
-          balancedSamples(samples, keyboardSamples.length),
-          keyboardSamples
-        ) ??
-        undefined
+      ? buildLearnedAttentionModel(samples, keyboardSamples) ?? undefined
       : undefined;
 
   return {
@@ -144,7 +139,7 @@ export function buildCalibrationProfile(
       keyboardTolerance,
       keyboardSeparation,
       keyboardQuality,
-      learnedModel
+      ...(learnedModel ? { learnedModel } : {})
     }
   };
 }
@@ -158,19 +153,6 @@ function isValidSample(sample: FrameFeatures): boolean {
 
 function validSamples(samples: FrameFeatures[] | undefined): FrameFeatures[] {
   return samples?.filter(isValidSample) ?? [];
-}
-
-function balancedSamples(samples: FrameFeatures[], maxSamples: number): FrameFeatures[] {
-  if (samples.length <= maxSamples) {
-    return samples;
-  }
-
-  const step = samples.length / maxSamples;
-
-  return Array.from(
-    { length: maxSamples },
-    (_, index) => samples[Math.floor(index * step)]
-  );
 }
 
 function vectorFromSamples(samples: FrameFeatures[]): FeatureVector {
