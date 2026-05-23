@@ -183,4 +183,36 @@ describe("calibration", () => {
       pointId: "top-left"
     });
   });
+
+  it("builds a learned model when keyboard calibration samples are available", () => {
+    const calibrationSamples = {
+      ...samplesByPoint(sample),
+      keyboard: Array.from({ length: 14 }, (_, index) => ({
+        ...sample("keyboard", index),
+        eyeVertical: 0.7 + index * 0.001,
+        leftEyeVertical: 0.7 + index * 0.001,
+        rightEyeVertical: 0.7 + index * 0.001,
+        faceCenterX: 0.8,
+        faceScale: 0.9
+      }))
+    };
+
+    const result = buildCalibrationProfile(calibrationSamples);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.learnedModel).toBeDefined();
+    expect(result.profile.learnedModel?.keyboardSeparation).toBeGreaterThan(0.75);
+    expect(result.profile.learnedModel?.featureKeys).not.toContain("faceCenterX");
+    expect(result.profile.learnedModel?.featureKeys).not.toContain("faceScale");
+  });
+
+  it("omits the learned model when keyboard calibration is not part of the profile", () => {
+    const result = buildCalibrationProfile(samplesByPoint(sample));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.keyboardCenter).toBeUndefined();
+    expect(result.profile.learnedModel).toBeUndefined();
+  });
 });

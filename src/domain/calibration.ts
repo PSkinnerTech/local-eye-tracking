@@ -6,6 +6,7 @@ import {
   type FeatureVector,
   type FrameFeatures
 } from "./types";
+import { buildLearnedAttentionModel } from "./learnedClassifier";
 
 export const MIN_VALID_SAMPLES_PER_POINT = 12;
 
@@ -121,6 +122,15 @@ export function buildCalibrationProfile(
     keyboardSeparation === undefined
       ? undefined
       : keyboardQualityForSeparation(keyboardSeparation);
+  const learnedModel =
+    keyboardSamples.length > 0
+      ? buildLearnedAttentionModel(samples, keyboardSamples) ??
+        buildLearnedAttentionModel(
+          balancedSamples(samples, keyboardSamples.length),
+          keyboardSamples
+        ) ??
+        undefined
+      : undefined;
 
   return {
     ok: true,
@@ -133,7 +143,8 @@ export function buildCalibrationProfile(
       keyboardCenter,
       keyboardTolerance,
       keyboardSeparation,
-      keyboardQuality
+      keyboardQuality,
+      learnedModel
     }
   };
 }
@@ -147,6 +158,19 @@ function isValidSample(sample: FrameFeatures): boolean {
 
 function validSamples(samples: FrameFeatures[] | undefined): FrameFeatures[] {
   return samples?.filter(isValidSample) ?? [];
+}
+
+function balancedSamples(samples: FrameFeatures[], maxSamples: number): FrameFeatures[] {
+  if (samples.length <= maxSamples) {
+    return samples;
+  }
+
+  const step = samples.length / maxSamples;
+
+  return Array.from(
+    { length: maxSamples },
+    (_, index) => samples[Math.floor(index * step)]
+  );
 }
 
 function vectorFromSamples(samples: FrameFeatures[]): FeatureVector {

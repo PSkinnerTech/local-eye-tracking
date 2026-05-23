@@ -88,6 +88,7 @@ export type CalibrationProfile = {
   keyboardTolerance?: FeatureVector;
   keyboardSeparation?: number;
   keyboardQuality?: KeyboardCalibrationQuality;
+  learnedModel?: LearnedAttentionModel;
 };
 
 export type RawAttentionState = "looking" | "away" | "unknown" | "face-missing";
