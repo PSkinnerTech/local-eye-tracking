@@ -28,7 +28,9 @@ function labelSummary(label: EvaluationLabel, sampleCount = 0): EvaluationSummar
     faceMissingPercent: 0,
     medianTrackingScore: null,
     medianSideGazeScore: null,
-    medianKeyboardScore: null
+    medianKeyboardScore: null,
+    medianLearnedKeyboardScore: null,
+    medianLearnedModelSeparation: null
   };
 }
 

@@ -319,7 +319,9 @@ function rate(numerator: number, denominator: number): number | null {
 }
 
 function median(values: Array<number | undefined>): number | null {
-  const finite = values.filter(Number.isFinite).sort((left, right) => left - right);
+  const finite = values
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+    .sort((left, right) => left - right);
 
   if (finite.length === 0) {
     return null;
