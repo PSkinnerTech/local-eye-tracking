@@ -85,15 +85,7 @@ export function classifyAttention(
       screenDistance: distance,
       ...sideGaze,
       ...keyboard,
-      ...(learned
-        ? {
-            learnedScreenDistance: learned.learnedScreenDistance,
-            learnedKeyboardDistance: learned.learnedKeyboardDistance,
-            learnedKeyboardScore: learned.learnedKeyboardScore,
-            learnedMargin: learned.learnedMargin,
-            learnedModelSeparation: learned.learnedModelSeparation
-          }
-        : {})
+      ...learnedResultDiagnostics(learned)
     };
   }
 
@@ -106,15 +98,24 @@ export function classifyAttention(
       screenDistance: distance,
       ...sideGaze,
       ...keyboard,
-      learnedScreenDistance: learned.learnedScreenDistance,
-      learnedKeyboardDistance: learned.learnedKeyboardDistance,
-      learnedKeyboardScore: learned.learnedKeyboardScore,
-      learnedMargin: learned.learnedMargin,
-      learnedModelSeparation: learned.learnedModelSeparation
+      ...learnedResultDiagnostics(learned)
     };
   }
 
   if (learned?.decision.state === "screen") {
+    if (distance > AWAY_DISTANCE_THRESHOLD) {
+      return {
+        rawState: "unknown",
+        confidence: clamp01(1 - learned.learnedKeyboardScore),
+        distance,
+        trackingScore,
+        screenDistance: distance,
+        ...sideGaze,
+        ...keyboard,
+        ...learnedResultDiagnostics(learned)
+      };
+    }
+
     return {
       rawState: "looking",
       confidence: clamp01(1 - learned.learnedKeyboardScore),
@@ -123,15 +124,14 @@ export function classifyAttention(
       screenDistance: distance,
       ...sideGaze,
       ...keyboard,
-      learnedScreenDistance: learned.learnedScreenDistance,
-      learnedKeyboardDistance: learned.learnedKeyboardDistance,
-      learnedKeyboardScore: learned.learnedKeyboardScore,
-      learnedMargin: learned.learnedMargin,
-      learnedModelSeparation: learned.learnedModelSeparation
+      ...learnedResultDiagnostics(learned)
     };
   }
 
-  if (learned?.decision.state === "unknown") {
+  if (
+    learned?.decision.state === "unknown" &&
+    distance <= AWAY_DISTANCE_THRESHOLD + DISTANCE_EPSILON
+  ) {
     return {
       rawState: "unknown",
       confidence: clamp01(1 - Math.abs(learned.learnedKeyboardScore - 0.5) * 2),
@@ -140,11 +140,7 @@ export function classifyAttention(
       screenDistance: distance,
       ...sideGaze,
       ...keyboard,
-      learnedScreenDistance: learned.learnedScreenDistance,
-      learnedKeyboardDistance: learned.learnedKeyboardDistance,
-      learnedKeyboardScore: learned.learnedKeyboardScore,
-      learnedMargin: learned.learnedMargin,
-      learnedModelSeparation: learned.learnedModelSeparation
+      ...learnedResultDiagnostics(learned)
     };
   }
 
@@ -163,15 +159,7 @@ export function classifyAttention(
       screenDistance: distance,
       ...sideGaze,
       ...keyboard,
-      ...(learned
-        ? {
-            learnedScreenDistance: learned.learnedScreenDistance,
-            learnedKeyboardDistance: learned.learnedKeyboardDistance,
-            learnedKeyboardScore: learned.learnedKeyboardScore,
-            learnedMargin: learned.learnedMargin,
-            learnedModelSeparation: learned.learnedModelSeparation
-          }
-        : {})
+      ...learnedResultDiagnostics(learned)
     };
   }
 
@@ -184,15 +172,7 @@ export function classifyAttention(
       screenDistance: distance,
       ...sideGaze,
       ...keyboard,
-      ...(learned
-        ? {
-            learnedScreenDistance: learned.learnedScreenDistance,
-            learnedKeyboardDistance: learned.learnedKeyboardDistance,
-            learnedKeyboardScore: learned.learnedKeyboardScore,
-            learnedMargin: learned.learnedMargin,
-            learnedModelSeparation: learned.learnedModelSeparation
-          }
-        : {})
+      ...learnedResultDiagnostics(learned)
     };
   }
 
@@ -205,15 +185,7 @@ export function classifyAttention(
       screenDistance: distance,
       ...sideGaze,
       ...keyboard,
-      ...(learned
-        ? {
-            learnedScreenDistance: learned.learnedScreenDistance,
-            learnedKeyboardDistance: learned.learnedKeyboardDistance,
-            learnedKeyboardScore: learned.learnedKeyboardScore,
-            learnedMargin: learned.learnedMargin,
-            learnedModelSeparation: learned.learnedModelSeparation
-          }
-        : {})
+      ...learnedResultDiagnostics(learned)
     };
   }
 
@@ -225,15 +197,7 @@ export function classifyAttention(
     screenDistance: distance,
     ...sideGaze,
     ...keyboard,
-    ...(learned
-      ? {
-          learnedScreenDistance: learned.learnedScreenDistance,
-          learnedKeyboardDistance: learned.learnedKeyboardDistance,
-          learnedKeyboardScore: learned.learnedKeyboardScore,
-          learnedMargin: learned.learnedMargin,
-          learnedModelSeparation: learned.learnedModelSeparation
-        }
-      : {})
+    ...learnedResultDiagnostics(learned)
   };
 }
 
@@ -313,6 +277,29 @@ function learnedDiagnostics(features: FrameFeatures, profile: CalibrationProfile
     learnedKeyboardScore: decision.keyboardScore,
     learnedMargin: decision.margin,
     learnedModelSeparation: decision.modelSeparation
+  };
+}
+
+function learnedResultDiagnostics(
+  learned: ReturnType<typeof learnedDiagnostics>
+): Pick<
+  AttentionResult,
+  | "learnedScreenDistance"
+  | "learnedKeyboardDistance"
+  | "learnedKeyboardScore"
+  | "learnedMargin"
+  | "learnedModelSeparation"
+> {
+  if (!learned) {
+    return {};
+  }
+
+  return {
+    learnedScreenDistance: learned.learnedScreenDistance,
+    learnedKeyboardDistance: learned.learnedKeyboardDistance,
+    learnedKeyboardScore: learned.learnedKeyboardScore,
+    learnedMargin: learned.learnedMargin,
+    learnedModelSeparation: learned.learnedModelSeparation
   };
 }
 

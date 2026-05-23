@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyAttention } from "./classifier";
+import { AWAY_DISTANCE_THRESHOLD, classifyAttention } from "./classifier";
 import { buildLearnedAttentionModel } from "./learnedClassifier";
 import type { CalibrationProfile, FrameFeatures } from "./types";
 
@@ -448,6 +448,24 @@ describe("classifyAttention", () => {
     expect(result.learnedMargin).toBeLessThan(-0.15);
   });
 
+  it("does not let learned screen force looking for extreme legacy outliers", () => {
+    const result = classifyAttention(
+      frame({
+        eyeVertical: 0.51,
+        leftEyeVertical: 0.51,
+        rightEyeVertical: 0.51,
+        faceCenterX: 0.92,
+        faceCenterY: 1.02,
+        faceScale: 0.9
+      }),
+      learnedProfile()
+    );
+
+    expect(result.distance).toBeGreaterThan(AWAY_DISTANCE_THRESHOLD);
+    expect(result.rawState).toBe("unknown");
+    expect(result.learnedKeyboardScore).toBeLessThan(0.4);
+  });
+
   it("uses the learned model to mark screen-vs-keyboard ambiguous frames unknown", () => {
     const result = classifyAttention(
       frame({
@@ -459,6 +477,23 @@ describe("classifyAttention", () => {
     );
 
     expect(result.rawState).toBe("unknown");
+    expect(result.learnedKeyboardScore).toBeGreaterThan(0.4);
+    expect(result.learnedKeyboardScore).toBeLessThan(0.6);
+  });
+
+  it("lets legacy away classify learned-unknown frames beyond the away threshold", () => {
+    const result = classifyAttention(
+      frame({
+        pitch: pitchForDistance(1.66),
+        eyeVertical: 0.59,
+        leftEyeVertical: 0.59,
+        rightEyeVertical: 0.59
+      }),
+      learnedProfile()
+    );
+
+    expect(result.distance).toBeGreaterThan(AWAY_DISTANCE_THRESHOLD);
+    expect(result.rawState).toBe("away");
     expect(result.learnedKeyboardScore).toBeGreaterThan(0.4);
     expect(result.learnedKeyboardScore).toBeLessThan(0.6);
   });
