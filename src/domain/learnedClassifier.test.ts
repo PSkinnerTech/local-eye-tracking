@@ -180,4 +180,41 @@ describe("learnedClassifier", () => {
 
     expect(classifyWithLearnedModel(frame(), facePlacementModel)).toBeNull();
   });
+
+  it("rejects forged high separation when learned centroids are weak", () => {
+    const model = buildLearnedAttentionModel(screenSamples(), keyboardSamples());
+    expect(model).not.toBeNull();
+
+    const forgedModel = {
+      ...model!,
+      keyboardCenter: model!.screenCenter,
+      keyboardSeparation: 999
+    };
+
+    expect(classifyWithLearnedModel(frame(), forgedModel)).toBeNull();
+  });
+
+  it("rejects duplicate learned model feature keys", () => {
+    const model = buildLearnedAttentionModel(screenSamples(), keyboardSamples());
+    expect(model).not.toBeNull();
+
+    const duplicateFeatureModel = {
+      ...model!,
+      featureKeys: [...model!.featureKeys, model!.featureKeys[0]]
+    };
+
+    expect(classifyWithLearnedModel(frame(), duplicateFeatureModel)).toBeNull();
+  });
+
+  it("rejects missing learned model feature keys", () => {
+    const model = buildLearnedAttentionModel(screenSamples(), keyboardSamples());
+    expect(model).not.toBeNull();
+
+    const missingFeatureModel = {
+      ...model!,
+      featureKeys: model!.featureKeys.slice(1)
+    };
+
+    expect(classifyWithLearnedModel(frame(), missingFeatureModel)).toBeNull();
+  });
 });

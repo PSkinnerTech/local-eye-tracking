@@ -94,16 +94,23 @@ export function classifyWithLearnedModel(
   features: FrameFeatures,
   model: LearnedAttentionModel | undefined
 ): LearnedAttentionDecision | null {
-  if (!isUsableModel(model) || !hasFiniteLearnedFeatures(features, model.featureKeys)) {
+  const usableModel = getUsableModel(model);
+
+  if (!usableModel || !hasFiniteLearnedFeatures(features, usableModel.model.featureKeys)) {
     return null;
   }
 
-  const screenDistance = distanceBetween(features, model.screenCenter, model.scale, model.featureKeys);
+  const screenDistance = distanceBetween(
+    features,
+    usableModel.model.screenCenter,
+    usableModel.model.scale,
+    usableModel.model.featureKeys
+  );
   const keyboardDistance = distanceBetween(
     features,
-    model.keyboardCenter,
-    model.scale,
-    model.featureKeys
+    usableModel.model.keyboardCenter,
+    usableModel.model.scale,
+    usableModel.model.featureKeys
   );
   const distanceTotal = screenDistance + keyboardDistance;
   const keyboardScore = distanceTotal > 0 ? screenDistance / distanceTotal : 0.5;
@@ -116,7 +123,7 @@ export function classifyWithLearnedModel(
       keyboardDistance,
       keyboardScore,
       margin,
-      modelSeparation: model.keyboardSeparation
+      modelSeparation: usableModel.separation
     };
   }
 
@@ -127,7 +134,7 @@ export function classifyWithLearnedModel(
       keyboardDistance,
       keyboardScore,
       margin,
-      modelSeparation: model.keyboardSeparation
+      modelSeparation: usableModel.separation
     };
   }
 
@@ -137,28 +144,44 @@ export function classifyWithLearnedModel(
     keyboardDistance,
     keyboardScore,
     margin,
-    modelSeparation: model.keyboardSeparation
+    modelSeparation: usableModel.separation
   };
 }
 
-function isUsableModel(
+function getUsableModel(
   model: LearnedAttentionModel | undefined
-): model is LearnedAttentionModel {
+): { model: LearnedAttentionModel; separation: number } | null {
+  if (
+    !model ||
+    model.version !== 1 ||
+    !hasCanonicalLearnedFeatureKeys(model.featureKeys) ||
+    !isFiniteFeatureVector(model.screenCenter, model.featureKeys) ||
+    !isFiniteFeatureVector(model.keyboardCenter, model.featureKeys) ||
+    !isFiniteFeatureVector(model.scale, model.featureKeys) ||
+    !model.featureKeys.every((key) => model.scale[key] > 0)
+  ) {
+    return null;
+  }
+
+  const separation = distanceBetween(
+    model.screenCenter,
+    model.keyboardCenter,
+    model.scale,
+    model.featureKeys
+  );
+
+  if (separation < LEARNED_MIN_SEPARATION) {
+    return null;
+  }
+
+  return { model, separation };
+}
+
+function hasCanonicalLearnedFeatureKeys(featureKeys: FeatureKey[] | undefined): boolean {
   return Boolean(
-    model &&
-      model.version === 1 &&
-      Array.isArray(model.featureKeys) &&
-      model.featureKeys.length > 0 &&
-      Number.isFinite(model.keyboardSeparation) &&
-      model.keyboardSeparation >= LEARNED_MIN_SEPARATION &&
-      isFiniteFeatureVector(model.screenCenter, model.featureKeys) &&
-      isFiniteFeatureVector(model.keyboardCenter, model.featureKeys) &&
-      isFiniteFeatureVector(model.scale, model.featureKeys) &&
-      model.featureKeys.every(
-        (key) =>
-          (LEARNED_FEATURE_KEYS as readonly FeatureKey[]).includes(key) &&
-          model.scale[key] > 0
-      )
+    featureKeys &&
+      featureKeys.length === LEARNED_FEATURE_KEYS.length &&
+      featureKeys.every((key, index) => key === LEARNED_FEATURE_KEYS[index])
   );
 }
 
