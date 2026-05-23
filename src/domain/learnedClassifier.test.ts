@@ -90,8 +90,12 @@ describe("learnedClassifier", () => {
     expect(buildLearnedAttentionModel(screenSamples(), invalidSamples)).toBeNull();
   });
 
-  it("returns null when learned calibration separation is weak", () => {
-    expect(buildLearnedAttentionModel(screenSamples(), screenSamples())).toBeNull();
+  it("builds weak learned models for diagnostics but does not trust them for classification", () => {
+    const weakModel = buildLearnedAttentionModel(screenSamples(), screenSamples());
+
+    expect(weakModel).not.toBeNull();
+    expect(weakModel?.keyboardSeparation).toBeLessThan(0.75);
+    expect(classifyWithLearnedModel(frame(), weakModel!)).toBeNull();
   });
 
   it("classifies keyboard-like eye-only glances as keyboard", () => {

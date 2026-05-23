@@ -222,4 +222,19 @@ describe("calibration", () => {
     expect(result.profile.keyboardCenter).toBeUndefined();
     expect(result.profile.learnedModel).toBeUndefined();
   });
+
+  it("keeps a weak learned model on the profile for diagnostics", () => {
+    const calibrationSamples = {
+      ...samplesByPoint(sample),
+      keyboard: Array.from({ length: 14 }, (_, index) => sample("keyboard", index))
+    };
+
+    const result = buildCalibrationProfile(calibrationSamples);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.keyboardQuality).toBe("weak");
+    expect(result.profile.learnedModel).toBeDefined();
+    expect(result.profile.learnedModel?.keyboardSeparation).toBeLessThan(0.75);
+  });
 });

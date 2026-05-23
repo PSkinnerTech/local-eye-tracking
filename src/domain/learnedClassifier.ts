@@ -67,10 +67,6 @@ export function buildLearnedAttentionModel(
   const scale = scaleFromSamples([...validScreenSamples, ...validKeyboardSamples]);
   const keyboardSeparation = distanceBetween(screenCenter, keyboardCenter, scale);
 
-  if (keyboardSeparation < LEARNED_MIN_SEPARATION) {
-    return null;
-  }
-
   const screenRadius = median(
     validScreenSamples.map((sample) => distanceBetween(sample, screenCenter, scale))
   );
